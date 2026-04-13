@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.2] - 2026-04-15
+
+### Changed
+- Rewrote README and package description to lead with the human problem — public knowledge locked in a discontinued proprietary binary — and carry an open-source/academic solidarity angle
+- Trimmed README from ~1,100 to ~870 words while preserving all technical tables
+
 ## [1.0.1] - 2026-04-13
 
 ### Added
