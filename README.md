@@ -2,6 +2,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/nesstar-converter)](https://pypi.org/project/nesstar-converter/)
 [![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml)
 
 **Pure-Python conversion for legacy Nesstar survey files - no `NesstarExporter.exe`, no Windows-only GUI, no dependency on discontinued desktop tooling.**
@@ -83,6 +84,12 @@ For the full institution table, confidence levels, and source links, see [`docs/
 
 ## Quick start
 
+### Install from PyPI
+
+```bash
+python -m pip install nesstar-converter
+```
+
 ### Install from source
 
 ```bash
@@ -135,9 +142,7 @@ This repository distinguishes between:
 If your goal is simply "turn this old survey file into something Excel can open", the shortest path is:
 
 ```bash
-git clone https://github.com/abhinavjnu/nesstar-converter.git
-cd nesstar-converter
-python -m pip install -e .
+python -m pip install nesstar-converter
 nesstar-converter convert path/to/file.Nesstar path/to/ddi.xml ./output --formats csv
 ```
 
