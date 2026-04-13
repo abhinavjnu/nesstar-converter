@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Global Nesstar ecosystem documentation in `docs/global-coverage.md`
+- `CITATION.cff` metadata for academic citation
+- GitHub Actions workflow for building and publishing release artifacts to PyPI via trusted publishing
+
+### Changed
+- Reframed the README around the global legacy-format problem, not just India/MOSPI
+- Added an evidence-backed comparison against `ihsn/nesstar-exporter`
+- Added PLFS structure-verification coverage based on NADA data-dictionary counts and official export files
+
 ## [1.0.0] - 2025-04-14
 
 ### Added
