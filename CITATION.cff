@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use nesstar-converter in research, please cite it using this metadata."
 title: "nesstar-converter"
 type: software
-version: 1.0.0
+version: 1.0.1
 date-released: 2026-04-13
 license: MIT
 repository-code: "https://github.com/abhinavjnu/nesstar-converter"
@@ -21,7 +21,7 @@ authors:
 preferred-citation:
   type: software
   title: "nesstar-converter"
-  version: 1.0.0
+  version: 1.0.1
   date-released: 2026-04-13
   url: "https://github.com/abhinavjnu/nesstar-converter"
   authors:
