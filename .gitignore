@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.parquet
+*.dta
+*.xlsx
+output/
