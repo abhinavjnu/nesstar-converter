@@ -1,410 +1,236 @@
-# 📊 Nesstar Converter
+# Nesstar Converter
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-58%20passing-brightgreen.svg)](#running-tests)
-[![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions)
+[![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml)
 
-**Convert proprietary Nesstar binary files into researcher-friendly formats — CSV, Parquet, Excel, Stata, and more.**
+**Pure-Python conversion for legacy Nesstar survey files - no `NesstarExporter.exe`, no Windows-only GUI, no dependency on discontinued desktop tooling.**
 
-India's National Sample Survey (NSS) microdata is distributed by the Ministry of Statistics (MOSPI) in a proprietary Nesstar binary format. Until now, researchers needed Nesstar Explorer — a discontinued, Windows-only application — just to read the data. This tool eliminates that dependency entirely. The Nesstar format was reverse-engineered from binary analysis and validated with **100% cell-level accuracy** against official Nesstar Explorer text exports across 11+ survey rounds.
+Nesstar was once a common dissemination format across social-science archives, national data services, and statistical agencies worldwide. The legacy ecosystem persists, but the original tooling is fragmented: many servers are gone, much documentation is outdated, and the surviving migration tools still depend on a proprietary Windows executable.
+
+`nesstar-converter` takes the opposite approach. It reverse-engineers the binary format directly in Python and writes open outputs such as Parquet, CSV, Excel, Stata, and JSON on Linux, macOS, and Windows.
+
+This project started with India's MoSPI survey archives, but the underlying problem is global. The wider Nesstar ecosystem touched the UK Data Archive, the European Social Survey, Statistics Canada / ODESI, GESIS, SSJDA in Japan, and the IHSN / World Bank metadata workflow. See [`docs/global-coverage.md`](docs/global-coverage.md) for the evidence-backed map.
 
 ---
 
-## Quick Start
+## Why this exists
 
-### Install
+- **Zero `.exe` dependency** - no `NesstarExporter.exe`, no batch wrappers, no Wine
+- **Cross-platform** - works anywhere Python 3.10+ works
+- **Reverse-engineered binary parser** - reads `.Nesstar` files directly
+- **Open output formats** - Parquet, CSV, TSV, Excel, Stata, JSON, JSONL, fixed-width text
+- **Validation-first** - compares converted output against official Nesstar Explorer exports
+- **Non-technical friendly** - one CLI, clear commands, sensible defaults
 
-```bash
-pip install nesstar-converter
-```
+---
 
-Or from source:
+## `nesstar-converter` vs `ihsn/nesstar-exporter`
+
+The IHSN tool is useful if you already have the official Windows exporter binary and want to automate that workflow. It is **not** a replacement for the binary itself.
+
+| Dimension | `ihsn/nesstar-exporter` | `nesstar-converter` |
+|---|---|---|
+| Core approach | Python wrapper around `NesstarExporter.exe` | Pure-Python binary parser |
+| Requires `NesstarExporter.exe` | **Yes** | **No** |
+| OS model | Windows-oriented workflow | Linux / macOS / Windows |
+| Reads binary directly | No | Yes |
+| Reverse-engineered format support | No | Yes |
+| Parquet output | No | Yes |
+| RDF / DDI export via official tool | Yes | No |
+| Validation against text exports | No built-in validation layer | Yes |
+| Install model | Repo scripts + external exe path | Standard Python package / console script |
+
+**Evidence:** the IHSN repo's own README, `config.json`, `src/config.py`, and `src/exporter.py` all require a path to `NesstarExporter.exe` and shell out to it with `subprocess.run(...)`.
+
+---
+
+## Who uses Nesstar?
+
+Nesstar was not just an India-specific format. It was part of a broader international archive ecosystem.
+
+| Institution / repository | Country / region | What we verified |
+|---|---|---|
+| **NSD / Sikt** | Norway | Original Nesstar developer and ESS host |
+| **UK Data Archive / UK Data Service** | United Kingdom | Co-developer and former Nesstar WebView operator |
+| **European Social Survey** | Pan-European | Disseminated through Nesstar from 2004 |
+| **Statistics Canada / ODESI** | Canada | Licensed the full Nesstar suite; former WebView instance |
+| **GESIS ZACAT** | Germany | Former Nesstar WebView catalog |
+| **Sciences Po / CDSP** | France | Publicly documented migration away from Nesstar |
+| **SSJDA / CSRDA** | Japan | Publicly documented Nesstar deployment |
+| **IHSN / World Bank ecosystem** | Global | Still distributes Nesstar Publisher and maintains migration tooling |
+| **India MoSPI / NSO** | India | Active distributor of `.Nesstar` survey files |
+| **DataFirst / Stats SA** | South Africa | Important related archive / testing target, but evidence is legacy or mixed |
+
+For the full institution table, confidence levels, and source links, see [`docs/global-coverage.md`](docs/global-coverage.md).
+
+---
+
+## Supported formats
+
+| Format | Extension | Best for |
+|---|---|---|
+| `parquet` | `.parquet` | Analytics, DuckDB, pandas, R, long-term storage |
+| `csv` | `.csv` | Universal spreadsheet compatibility |
+| `tsv` | `.tsv` | Tab-separated workflows and legacy survey tooling |
+| `excel` | `.xlsx` | Non-technical users |
+| `stata` | `.dta` | Stata users, with leading zeros preserved |
+| `json` | `.json` | Web apps and structured interchange |
+| `jsonl` | `.jsonl` | Streaming and line-oriented pipelines |
+| `fwf` | `.txt` | Fixed-width text output |
+
+---
+
+## Quick start
+
+### Install from source
 
 ```bash
 git clone https://github.com/abhinavjnu/nesstar-converter.git
 cd nesstar-converter
-pip install -e .
+python -m pip install -e ".[dev]"
 ```
-
-### Basic Usage
-
-```bash
-# Inspect a Nesstar file
-python nesstar_converter.py info myfile.Nesstar
-
-# Convert to CSV
-python nesstar_converter.py convert myfile.Nesstar ./output --formats csv
-
-# Convert to multiple formats at once
-python nesstar_converter.py convert myfile.Nesstar ./output --formats csv,excel,stata
-```
-
-That's it. The `ddi.xml` metadata file is auto-detected from the same directory as the `.Nesstar` file.
-
----
-
-## Features
-
-- **8 output formats** — Parquet, CSV, TSV, Excel, Stata, JSON, JSON Lines, fixed-width
-- **Zero-dependency data access** — no Nesstar Explorer, no Windows, no GUI needed
-- **100% validated accuracy** — cell-for-cell match against official Nesstar Explorer exports
-- **Auto-detection** — finds the companion `ddi.xml` automatically
-- **Memory-mapped I/O** — handles large survey files (hundreds of MB) without loading everything into RAM
-- **Batch conversion** — convert all rounds of a survey in one command
-- **Built-in validation** — compare your converted output against Nesstar Explorer text exports
-- **Variable labels preserved** — Excel and Stata outputs carry human-readable column labels
-- **Leading zeros preserved** — Stata `.dta` output keeps string identifiers intact (state codes, sample codes)
-- **Single-file architecture** — one Python file, no complex package structure, easy to audit
-
----
-
-## Supported Formats
-
-| Format    | Extension   | Best For                                      |
-|-----------|-------------|-----------------------------------------------|
-| `parquet` | `.parquet`  | Large datasets, fast analytics (pandas, R, DuckDB) |
-| `csv`     | `.csv`      | Excel, Google Sheets, R, Stata — universal    |
-| `tsv`     | `.tsv`      | Tab-separated; traditional survey data format |
-| `excel`   | `.xlsx`     | Non-technical users; includes variable labels |
-| `stata`   | `.dta`      | Stata users; preserves leading zeros (v117)   |
-| `json`    | `.json`     | Web applications, APIs                        |
-| `jsonl`   | `.jsonl`    | Streaming pipelines, line-by-line processing  |
-| `fwf`     | `.txt`      | Fixed-width text; preserves original column widths |
-
-**Recommendation:** Use `parquet` for analysis (smallest files, fastest reads). Use `csv` if you just need to open the data in a spreadsheet.
-
----
-
-## Detailed Usage
 
 ### Inspect a file
 
-See what's inside a Nesstar file before converting — block names, record counts, variable types:
+```bash
+nesstar-converter info path/to/file.Nesstar path/to/ddi.xml
+```
+
+### Convert to open formats
 
 ```bash
-python nesstar_converter.py info myfile.Nesstar
+nesstar-converter convert path/to/file.Nesstar path/to/ddi.xml ./output --formats csv,parquet,stata
 ```
 
-Sample output:
-
-```
-═══════════════════════════════════════════════════════════
-  NESSTAR FILE INFO
-═══════════════════════════════════════════════════════════
-  Nesstar file : myfile.Nesstar
-  File size    : 142.3 MB (142,312,448 bytes)
-  Magic        : NESSTART ✓
-
-  Blocks       : 9
-  Total records: 3,421,607
-  Total vars   : 187
-
-  Block Details:
-    F1  Person_Records                       1,234,567 records   32 vars
-    F2  Household_Records                      456,789 records   28 vars
-    ...
-```
-
-### Convert
+### Validate against official text exports
 
 ```bash
-# Single format
-python nesstar_converter.py convert myfile.Nesstar ./output --formats csv
-
-# Multiple formats
-python nesstar_converter.py convert myfile.Nesstar ./output --formats csv,excel,stata
-
-# All 8 formats
-python nesstar_converter.py convert myfile.Nesstar ./output --formats all
-
-# Explicit DDI path (if auto-detection doesn't work)
-python nesstar_converter.py convert myfile.Nesstar ddi.xml ./output --formats csv
-
-# With year label and quiet mode
-python nesstar_converter.py convert myfile.Nesstar ./output --formats parquet --year 2023-24 --quiet
+nesstar-converter validate ./output ./exported_text
 ```
 
-Output files are organized by block name:
-
-```
-output/
-├── Person_Records.csv
-├── Person_Records.parquet
-├── Household_Records.csv
-├── Household_Records.parquet
-└── ...
-```
-
-### Validate against Nesstar Explorer exports
-
-If you have text exports from Nesstar Explorer, you can verify the converter's output cell-by-cell:
-
-```bash
-python nesstar_converter.py validate ./parquet_dir ./export_dir
-```
-
-The validator compares every cell in every row using multiset matching — row order doesn't matter, but every value must match exactly.
-
-### Batch convert
-
-Convert all Nesstar files for an entire survey at once:
-
-```bash
-python nesstar_converter.py batch --survey hces --formats parquet,csv
-```
-
-### List supported formats
-
-```bash
-python nesstar_converter.py formats
-```
+If the companion `ddi.xml` sits beside the `.Nesstar` file, you can omit it and the tool will auto-detect it.
 
 ---
 
-## How It Works
+## Validation and coverage
 
-The Nesstar binary format is undocumented. This converter was built by reverse-engineering the binary structure through systematic analysis. Here's what happens when you run a conversion:
+This repository distinguishes between:
 
-1. **DDI metadata parsing** — Reads the companion `ddi.xml` file (DDI Codebook standard) to discover block definitions, variable names, data types, value ranges, and expected record counts.
+1. **Cell-level validation** - converted output matched official Nesstar Explorer exports row-for-row and value-for-value.
+2. **Structure-level verification** - official export files matched published file counts and variable counts, but the raw package lacked the companion DDI XML required for full binary re-validation.
 
-2. **Memory-mapped file access** — The `.Nesstar` binary is memory-mapped for efficient random access without loading the entire file into RAM.
+| Survey / corpus | Years / rounds | Verification level | Result |
+|---|---|---|---|
+| **EUS** | 38th Round (1983) | Cell-level | 9/9 blocks, 3.4M rows, zero mismatches against official exports |
+| **HCES** | 38th (1983), 45th (1989-90), 66th (2009-10) | Cell-level | 27/28 blocks, 23.4M+ rows, zero mismatches for blocks present in DDI |
+| **PLFS** | 2017-18 to 2022-23 | Structure-level | 24/24 official export files matched NADA data-dictionary row/column counts; one 2017-18 revisit export includes a trailing blank tab column |
 
-3. **Metadata slot discovery** — Scans the binary for 160-byte metadata slot signatures. Each slot describes one variable: its encoding type, character width, and name (stored as UTF-16-LE).
-
-4. **DDI ↔ binary matching** — Aligns DDI variable definitions with discovered metadata slots using name matching and positional heuristics.
-
-5. **Column-major decoding** — Data is stored column-major: all N values for variable 0, then all N values for variable 1, and so on. Three encoding types are decoded:
-
-   | Encoding | Storage | Description |
-   |----------|---------|-------------|
-   | `char`   | Fixed-width ASCII bytes | String data (state codes, identifiers) |
-   | `offset` | Variable-width integers | Integers with range compression (min/max from DDI) |
-   | `double` | 8 bytes IEEE 754 | Floating-point values |
-
-6. **Validation** — Each extracted block is checked against DDI expectations (row count, column count, column names) before writing output files.
-
-### File structure
-
-Every MOSPI Nesstar distribution contains two files in the same directory:
-
-| File | Contents |
-|------|----------|
-| `*.Nesstar` | Binary data (starts with `NESSTART` magic bytes) |
-| `ddi.xml` | DDI Codebook XML — variable names, types, labels, value ranges, record counts |
-
-The converter auto-detects `ddi.xml` from the same directory as the `.Nesstar` file.
+**PLFS note:** the local PLFS raw ZIPs contain `.Nesstar` files, official text exports, and the legacy Nesstar Explorer installer, but not the companion DDI XML needed for full binary decoding in the current open parser. That means PLFS is confirmed as a real Nesstar distribution corpus, but its current evidence in this repo is structural rather than full cell-level re-validation.
 
 ---
 
-## Validation Results
+## For non-technical users
 
-The converter has been validated against ground-truth Nesstar Explorer text exports with zero mismatches:
-
-| Survey | Round | Blocks | Rows | Cells (approx.) | Mismatches |
-|--------|-------|--------|------|------------------|------------|
-| EUS (Employment-Unemployment) | 38th (1983) | 9/9 | 3.4M | ~978M | **0** |
-| HCES (Household Consumption) | 38th (1983) | 7/7 | — | — | **0** |
-| HCES | 45th (1989-90) | 10/10 | — | — | **0** |
-| HCES | 66th (2009-10) | 10/11* | — | — | **0** |
-| **Total validated** | | **36+ blocks** | **23.4M+ rows** | **~billions** | **0** |
-
-\* One HCES 66th block has a known DDI metadata discrepancy (missing from DDI). All blocks present in DDI extract with zero errors.
-
-The test suite contains **58 automated tests** (unit + integration) covering DDI parsing, binary decoding, metadata matching, format output, CLI behavior, and edge cases. CI runs on Python 3.10–3.13.
-
----
-
-## For Non-Technical Users
-
-Never used a command line before? This step-by-step guide will walk you through converting your Nesstar files to CSV, which opens directly in Microsoft Excel or Google Sheets.
-
-### Step 1: Install Python
-
-1. Go to [python.org/downloads](https://www.python.org/downloads/)
-2. Download Python 3.10 or newer (click the big yellow button)
-3. **Important:** During installation, check the box that says **"Add Python to PATH"**
-4. Click "Install Now" and wait for it to finish
-
-### Step 2: Open a terminal
-
-- **Windows:** Press `Win + R`, type `cmd`, press Enter
-- **Mac:** Open Spotlight (`Cmd + Space`), type `Terminal`, press Enter
-- **Linux:** Press `Ctrl + Alt + T`
-
-### Step 3: Install Nesstar Converter
-
-Type this into your terminal and press Enter:
+If your goal is simply "turn this old survey file into something Excel can open", the shortest path is:
 
 ```bash
-pip install nesstar-converter
+git clone https://github.com/abhinavjnu/nesstar-converter.git
+cd nesstar-converter
+python -m pip install -e .
+nesstar-converter convert path/to/file.Nesstar path/to/ddi.xml ./output --formats csv
 ```
 
-You should see some progress bars and then a success message.
+Then open the generated `.csv` files in Excel, LibreOffice, Google Sheets, Stata, R, or Python.
 
-### Step 4: Find your Nesstar files
+If you are unsure which format to choose:
 
-Your MOSPI data download should contain two files in the same folder:
-
-- A file ending in `.Nesstar` (this is your data)
-- A file called `ddi.xml` (this is the metadata)
-
-Note the full path to the `.Nesstar` file. For example:
-- Windows: `C:\Users\YourName\Downloads\NSS_data\mysurvey.Nesstar`
-- Mac/Linux: `/home/yourname/Downloads/NSS_data/mysurvey.Nesstar`
-
-### Step 5: Convert to CSV
-
-In your terminal, type:
-
-```bash
-python nesstar_converter.py convert "path/to/mysurvey.Nesstar" ./my_output --formats csv
-```
-
-Replace `path/to/mysurvey.Nesstar` with the actual path to your file. The tool will automatically find the `ddi.xml` in the same folder.
-
-### Step 6: Find your output
-
-Look in the `my_output` folder (created in your current directory). You'll find one `.csv` file for each data block in the survey — for example, `Person_Records.csv`, `Household_Records.csv`, etc.
-
-Double-click any `.csv` file to open it in Excel or upload it to Google Sheets.
-
-### Which format should I choose?
-
-| You want to... | Use this |
-|----------------|----------|
-| Open in Excel or Google Sheets | `csv` |
-| Use in Stata | `stata` |
-| Use in R or Python for analysis | `parquet` |
-| Share with someone who uses Excel | `excel` |
-| Not sure | `csv` — it works everywhere |
+| You want to... | Use |
+|---|---|
+| Open the data in Excel | `csv` |
+| Work in Stata | `stata` |
+| Analyze in Python / R / DuckDB | `parquet` |
+| Preserve a text-like interchange format | `tsv` or `fwf` |
 
 ---
 
-## API Usage
-
-Use `nesstar_converter` as a Python library in your own scripts:
+## Python API
 
 ```python
-from nesstar_converter import convert_nesstar, parse_ddi, show_info
+from nesstar_converter import convert_nesstar, show_info
 
-# Inspect a file (prints to stdout)
-show_info('myfile.Nesstar', 'ddi.xml')
+show_info("survey.Nesstar", "ddi.xml")
 
-# Convert to multiple formats
 report = convert_nesstar(
-    'myfile.Nesstar', 'ddi.xml', './output',
-    formats=['csv', 'parquet', 'stata'],
-    year='2023-24'
+    "survey.Nesstar",
+    "ddi.xml",
+    "./output",
+    formats=["csv", "parquet"],
+    year="2022-23",
 )
-
-# Access the conversion report
-for block_name, info in report['blocks'].items():
-    print(f"{block_name}: {info['rows']} rows, {info['columns']} cols")
 ```
 
-### Parse DDI metadata only
+Key functions:
 
-```python
-from nesstar_converter import parse_ddi
-
-blocks = parse_ddi('ddi.xml')
-for fid, block in blocks.items():
-    print(f"{block['name']}: {block['nrecs']} records, {len(block['ddi_vars'])} variables")
-    for var in block['ddi_vars'][:5]:
-        print(f"  {var['name']:20s}  {var['type']:10s}  {var['label']}")
-```
-
-### Key functions
-
-| Function | Description |
-|----------|-------------|
-| `convert_nesstar(nesstar, ddi, outdir, formats, year)` | Convert a Nesstar file; returns extraction report dict |
-| `parse_ddi(ddi_path)` | Parse DDI XML; returns block definitions with variable specs |
-| `show_info(nesstar, ddi)` | Print file inspection report to stdout |
-| `validate_against_export(parquet_dir, export_dir)` | Cell-level validation against Nesstar Explorer exports |
-| `batch_convert(survey, formats)` | Find and convert all Nesstar files for a survey |
+| Function | Purpose |
+|---|---|
+| `convert_nesstar(...)` | Convert one `.Nesstar` file to one or more formats |
+| `parse_ddi(...)` | Parse DDI XML block and variable metadata |
+| `show_info(...)` | Inspect a file before conversion |
+| `validate_against_export(...)` | Compare converted output to official text exports |
+| `batch_convert(...)` | Convert a survey corpus in batch mode |
 
 ---
 
-## Running Tests
+## Limitations
+
+- **Full decoding currently expects DDI metadata.** If a distributor ships only the `.Nesstar` binary and omits the companion DDI XML, the current parser cannot yet do full open extraction on its own.
+- **This is a data-conversion tool, not an RDF packager.** If your goal is specifically DDI / RDF export via the official legacy toolchain, the IHSN wrapper may still be useful - but it still requires `NesstarExporter.exe`.
+- **Legacy ecosystems are inconsistent.** Different institutions used different Nesstar-era conventions, so community test cases from outside India are especially valuable.
+
+---
+
+## Documentation
+
+- [`docs/TECHNICAL.md`](docs/TECHNICAL.md) - binary format notes and implementation details
+- [`docs/global-coverage.md`](docs/global-coverage.md) - institutions, countries, archives, and source links
+
+---
+
+## Testing
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
-
-# Run the full test suite
+python -m pip install -e ".[dev]"
 pytest tests/ -v
-
-# Run unit tests only (no real data files required)
-pytest tests/ -v -m "not integration and not slow"
 ```
 
-The test suite includes:
-- **Unit tests** — DDI parsing, binary width computation, slot reading, encoding/decoding, metadata matching, format writers, CLI argument handling
-- **Integration tests** — full pipeline extraction against real Nesstar files (auto-skipped if data files are not present)
-
----
-
-## Surveys Known to Work
-
-This tool works with any NSS survey distributed through the Nesstar system. Tested surveys include:
-
-| Survey | Full Name |
-|--------|-----------|
-| **EUS** | Employment-Unemployment Survey |
-| **HCES** | Household Consumer Expenditure Survey |
-| **ASI** | Annual Survey of Industries |
-| **SAS** | Social Consumption (various rounds) |
-| **TUS** | Time Use Survey |
-
-If you successfully convert another survey, please open an issue or PR to add it to this list.
-
----
-
-## Requirements
-
-- Python 3.10+
-- [pandas](https://pandas.pydata.org/)
-- [pyarrow](https://arrow.apache.org/docs/python/) (for Parquet support)
-- [numpy](https://numpy.org/)
-- [tqdm](https://tqdm.github.io/) (progress bars; optional but recommended)
-- [openpyxl](https://openpyxl.readthedocs.io/) (for Excel output)
-
-All dependencies are installed automatically with `pip install nesstar-converter`.
+CI runs unit tests on Python 3.10-3.13 and checks formatting with Ruff.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Here are some ways to help:
+Good contributions for this project:
 
-- **Test with new surveys** — Try converting Nesstar files from surveys not yet on the tested list and report results
-- **Report bugs** — Open an issue with the error message and (if possible) the DDI file
-- **Improve documentation** — Especially for surveys you've worked with
-- **Add features** — See open issues for ideas
+- Test the converter on non-MoSPI Nesstar files
+- Report datasets that still circulate as `.Nesstar` / `.NSDstat`
+- Share evidence of legacy Nesstar repositories or migrations
+- Improve metadata recovery for archives that omit `ddi.xml`
 
-### Development setup
+Community testing requests are tracked in the issue tracker, including:
 
-```bash
-git clone https://github.com/abhinavjnu/nesstar-converter.git
-cd nesstar-converter
-pip install -e ".[dev]"
-pytest tests/ -v
-```
+- Stats SA GHS
+- UK Data Archive legacy Nesstar packages
+- World Bank / IHSN LSMS-style Nesstar corpora
 
-Please ensure all tests pass before submitting a pull request.
+---
+
+## Citation
+
+If you use this tool in research, please cite it using [`CITATION.cff`](CITATION.cff).
 
 ---
 
 ## License
 
-[MIT](LICENSE) — use it freely for research, teaching, and commercial work.
-
----
-
-## Acknowledgments
-
-This tool was built to support open access to India's public survey microdata. The Nesstar binary format is undocumented; the decoding logic was developed through careful binary analysis and validated against official Nesstar Explorer exports.
-
-If this tool saves you time in your research, consider citing it or starring the repository.
+[MIT](LICENSE)
