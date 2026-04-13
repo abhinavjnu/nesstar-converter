@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use nesstar-converter in research, please cite it using this metadata."
+title: "nesstar-converter"
+type: software
+version: 1.0.0
+date-released: 2026-04-13
+license: MIT
+repository-code: "https://github.com/abhinavjnu/nesstar-converter"
+url: "https://github.com/abhinavjnu/nesstar-converter"
+abstract: >-
+  Pure-Python converter for legacy Nesstar survey binaries to open formats such
+  as Parquet, CSV, Excel, Stata, JSON, and fixed-width text.
+keywords:
+  - Nesstar
+  - survey data
+  - microdata
+  - DDI
+  - Parquet
+authors:
+  - family-names: "abhinavjnu"
+preferred-citation:
+  type: software
+  title: "nesstar-converter"
+  version: 1.0.0
+  date-released: 2026-04-13
+  url: "https://github.com/abhinavjnu/nesstar-converter"
+  authors:
+    - family-names: "abhinavjnu"

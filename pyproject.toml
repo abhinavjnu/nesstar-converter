@@ -5,13 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "nesstar-converter"
 version = "1.0.0"
-description = "Convert proprietary Nesstar binary files to CSV, Excel, Stata, Parquet, JSON, and more"
+description = "Pure-Python converter for legacy Nesstar survey files"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
     { name = "abhinavjnu" },
 ]
+keywords = ["nesstar", "microdata", "ddi", "survey-data", "parquet"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
