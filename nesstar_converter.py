@@ -39,7 +39,6 @@ import re
 import struct
 import sys
 import textwrap
-import time
 import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
@@ -648,7 +647,7 @@ def convert_nesstar(nesstar_path: str, ddi_path: str, output_dir: str,
 
         # Extract and convert blocks
         if verbose:
-            print(f"\nStep 4/4: Extracting and converting blocks...")
+            print("\nStep 4/4: Extracting and converting blocks...")
 
         block_items = sorted(blocks.items(), key=lambda x: x[1]['fid_num'])
         progress = tqdm(block_items, desc="Blocks", disable=not verbose or not HAS_TQDM)
@@ -1105,7 +1104,7 @@ def show_info(nesstar_path: str, ddi_path: str):
         print(f"  ⚠ WARNING: Not a valid Nesstar file (magic: {magic})")
         return
 
-    print(f"  Magic        : NESSTART ✓")
+    print("  Magic        : NESSTART ✓")
 
     # DDI metadata
     print(f"\n  DDI file     : {ddi_path}")
@@ -1356,7 +1355,7 @@ def main():
     batch_p.add_argument(
         '--formats', '-f',
         default='parquet',
-        help=f'Comma-separated output formats (default: parquet)',
+        help='Comma-separated output formats (default: parquet)',
     )
 
     # --- formats ---
