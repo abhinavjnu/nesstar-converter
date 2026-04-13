@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.0.1] - 2026-04-13
 
 ### Added
 - Global Nesstar ecosystem documentation in `docs/global-coverage.md`
@@ -14,7 +14,7 @@ All notable changes to this project will be documented in this file.
 - Added an evidence-backed comparison against `ihsn/nesstar-exporter`
 - Added PLFS structure-verification coverage based on NADA data-dictionary counts and official export files
 
-## [1.0.0] - 2025-04-14
+## [1.0.0] - 2026-04-13
 
 ### Added
 - Initial release of nesstar-converter
