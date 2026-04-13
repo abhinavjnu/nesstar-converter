@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nesstar-converter"
+version = "1.0.0"
+description = "Convert proprietary Nesstar binary files to CSV, Excel, Stata, Parquet, JSON, and more"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "abhinavjnu" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "pandas>=2.0",
+    "pyarrow>=12.0",
+    "numpy>=1.24",
+    "tqdm>=4.60",
+    "openpyxl>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+nesstar-converter = "nesstar_converter:main"
+
+[project.urls]
+Homepage = "https://github.com/abhinavjnu/nesstar-converter"
+Repository = "https://github.com/abhinavjnu/nesstar-converter"
+Issues = "https://github.com/abhinavjnu/nesstar-converter/issues"
+Documentation = "https://github.com/abhinavjnu/nesstar-converter/tree/main/docs"
+
+[tool.setuptools]
+py-modules = ["nesstar_converter"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (fast, no real data needed)",
+    "integration: Integration tests (need real Nesstar data)",
+    "slow: Slow tests (full dataset validation)",
+]
