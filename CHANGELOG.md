@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.3] - 2026-05-11
+
+### Added
+- Resource-indexed Nesstar extraction path that reads dataset descriptors, variable directories, and exact payload offsets from trailing resource records
+- Compact numeric decoding support for nibble-packed, uint8/16/24/32/40, and float64 resource payloads
+- Integration regression test for PLFS resource-indexed files against official text exports when local fixtures are available
+
+### Changed
+- Conversion pipeline now prefers resource-index extraction and falls back to metadata-adjacent scanning only when needed
+- Improved resource text decoding for NUL-terminated string slots and stricter payload-size validation
+- Updated technical format documentation for resource-indexed layout and compact encodings
+
 ## [1.0.2] - 2026-04-15
 
 ### Changed
