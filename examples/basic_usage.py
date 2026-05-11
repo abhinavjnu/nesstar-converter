@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Basic usage example for nesstar-converter."""
 
-from pathlib import Path
 from nesstar_converter import convert_nesstar, show_info
 
 # --- Step 1: Inspect a Nesstar file ---

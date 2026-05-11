@@ -5,14 +5,13 @@ full-pipeline integration, CLI behaviour, and edge cases.
 """
 
 import json
-import math
+import os
 import struct
 import subprocess
 import sys
 from collections import Counter
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import pytest
 
@@ -27,15 +26,25 @@ from nesstar_converter import (
     FORMAT_EXTENSIONS,
     NESSTAR_MAGIC,
     SLOT_SIZE,
+    _compact_payload_size,
+    _decode_compact_numeric_column,
     _extract_char_column,
+    _extract_cstring_column,
     _extract_double_column,
     _extract_offset_column,
     _find_matching_export,
+    _parse_resource_index,
+    _parse_variable_directory,
     _safe_name,
+    _u16le,
+    _u32le,
     _validate_block,
     _write_formats,
+    DESCRIPTOR_RECORD_SIZE_FIELD,
+    DESCRIPTOR_TABLE_RECORD_ID_FIELD,
     compute_binary_width,
     convert_nesstar,
+    extract_block_resource_indexed,
     find_metadata_sections,
     match_ddi_to_slots,
     parse_ddi,
@@ -52,32 +61,43 @@ from nesstar_converter import (
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # Allow override via environment variable
-import os
 _data_root = os.environ.get("NESSTAR_TEST_DATA", "")
 if _data_root:
     _data_path = Path(_data_root)
     NESSTAR_FILE = str(next(_data_path.rglob("*.Nesstar"), Path("missing")))
     DDI_FILE = str(next(_data_path.rglob("ddi.xml"), Path("missing")))
-    EXPORT_DIR = str(next((_data_path / p for p in ["exported", "."]
-                          if (_data_path / p).is_dir()), Path("missing")))
+    EXPORT_DIR = str(
+        next(
+            (_data_path / p for p in ["exported", "."] if (_data_path / p).is_dir()),
+            Path("missing"),
+        )
+    )
 else:
     _mospi = Path("/media/abhinav/Data/MOSPI")
     NESSTAR_FILE = str(
-        _mospi / "data/eus/1983/Nss38_10_new format/survey0/data/NSS_38_SCH_10_EMP_UNEMP.Nesstar"
+        _mospi
+        / "data/eus/1983/Nss38_10_new format/survey0/data/NSS_38_SCH_10_EMP_UNEMP.Nesstar"
     )
-    DDI_FILE = str(
-        _mospi / "data/eus/1983/Nss38_10_new format/survey0/data/ddi.xml"
-    )
+    DDI_FILE = str(_mospi / "data/eus/1983/Nss38_10_new format/survey0/data/ddi.xml")
     EXPORT_DIR = str(_mospi / "data/eus/1983/exported")
 
 HAS_REAL_DATA = Path(NESSTAR_FILE).exists() and Path(DDI_FILE).exists()
 HAS_EXPORTS = Path(EXPORT_DIR).exists() and any(Path(EXPORT_DIR).glob("*.txt"))
+PLFS_NESSTAR_FILE = Path(
+    "/media/abhinav/Data/Datasets/PLFS/DDI-IND-CSO-PLFS-2023-24.Nesstar"
+)
+PLFS_EXPORT_DIR = Path("/media/abhinav/Data/Datasets/PLFS/DDI-IND-CSO-PLFS-2023-24")
+HAS_PLFS_RESOURCE_DATA = PLFS_NESSTAR_FILE.exists() and PLFS_EXPORT_DIR.exists()
 
 needs_real_data = pytest.mark.skipif(
     not HAS_REAL_DATA, reason="Real Nesstar/DDI data not available"
 )
 needs_exports = pytest.mark.skipif(
     not HAS_EXPORTS, reason="Text export files not available"
+)
+needs_plfs_resource_data = pytest.mark.skipif(
+    not HAS_PLFS_RESOURCE_DATA,
+    reason="PLFS resource-indexed Nesstar file and text exports not available",
 )
 
 # ---------------------------------------------------------------------------
@@ -92,8 +112,14 @@ BLOCK_EXPECTATIONS = {
     "Block-42-Persons-migration-records": {"rows": 623_494, "cols": 29},
     "Block-5-Persons-DailyActivity-records": {"rows": 546_198, "cols": 35},
     "Block-6-Persons-UsualActivity-records": {"rows": 623_494, "cols": 33},
-    "Block-7-Persons-Notworking-subsidiary-activity-record": {"rows": 272_487, "cols": 22},
-    "Block-8-Persons-Addl-Questions-UsualActivity-records": {"rows": 471_840, "cols": 33},
+    "Block-7-Persons-Notworking-subsidiary-activity-record": {
+        "rows": 272_487,
+        "cols": 22,
+    },
+    "Block-8-Persons-Addl-Questions-UsualActivity-records": {
+        "rows": 471_840,
+        "cols": 33,
+    },
     "Block-9-Persons-Domestic-duties-records": {"rows": 120_804, "cols": 39},
     "Block-1-3-Household-records": {"rows": 120_921, "cols": 42},
 }
@@ -102,6 +128,7 @@ BLOCK_EXPECTATIONS = {
 # ═══════════════════════════════════════════════════════════════════════════
 #  Module-scoped fixtures (shared across integration tests)
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture(scope="module")
 def ddi_blocks():
@@ -117,6 +144,7 @@ def nesstar_data():
     if not Path(NESSTAR_FILE).exists():
         pytest.skip("Nesstar binary not available")
     import mmap
+
     with open(NESSTAR_FILE, "rb") as f:
         data = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
     yield data
@@ -130,9 +158,12 @@ def converted_block10(tmp_path_factory):
         pytest.skip("Real data not available")
     out = tmp_path_factory.mktemp("block10_output")
     report = convert_nesstar(
-        NESSTAR_FILE, DDI_FILE, str(out),
+        NESSTAR_FILE,
+        DDI_FILE,
+        str(out),
         formats=["csv", "parquet", "tsv"],
-        year="1983", verbose=False,
+        year="1983",
+        verbose=False,
     )
     return out, report
 
@@ -151,6 +182,7 @@ def block10_dataframe(converted_block10):
 # ═══════════════════════════════════════════════════════════════════════════
 #  1. Unit tests — DDI parsing
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestParseDDI:
     """Unit tests for parse_ddi()."""
@@ -201,8 +233,11 @@ class TestParseDDI:
     def test_parse_ddi_variable_types(self, ddi_blocks):
         """Check known variable types, widths, and decimals."""
         # Find Block-10
-        blk10 = next(b for b in ddi_blocks.values()
-                     if b["name"] == "Block-10-Household-Loan-records")
+        blk10 = next(
+            b
+            for b in ddi_blocks.values()
+            if b["name"] == "Block-10-Household-Loan-records"
+        )
         var_map = {v["name"]: v for v in blk10["ddi_vars"]}
 
         # Hhold_key: character, width 11
@@ -237,6 +272,7 @@ class TestParseDDI:
 #  2. Unit tests — binary decoding
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBinaryDecoding:
     """Unit tests for _extract_*_column and compute_binary_width."""
 
@@ -261,6 +297,12 @@ class TestBinaryDecoding:
         assert result == ["", ""]
 
     @pytest.mark.unit
+    def test_extract_cstring_column_stops_at_nul(self):
+        raw = b"ABC\x00Z" + b"XY\x00  "
+        result = _extract_cstring_column(raw, 5, 2)
+        assert result == ["ABC", "XY"]
+
+    @pytest.mark.unit
     def test_extract_offset_column(self):
         """Decode known bytes as offset type (little-endian + offset_min)."""
         # offset_min=100; value stored = actual - offset_min
@@ -281,6 +323,25 @@ class TestBinaryDecoding:
         raw = b"\xff\xff" + b"\xff\xff"
         result = _extract_offset_column(raw, 2, 2, offset_min=0)
         assert result == ["", ""]
+
+    @pytest.mark.unit
+    def test_extract_nibble_packed_numeric(self):
+        """Decode two 4-bit values from each byte, using 0xF as missing."""
+        raw = bytes([0x12, 0x3F, 0x40])
+        result = _decode_compact_numeric_column(raw, 2, 5)
+        assert result == ["1", "2", "3", "", "4"]
+
+    @pytest.mark.unit
+    def test_extract_nibble_packed_numeric_with_offset(self):
+        raw = bytes([0x01, 0x2F])
+        result = _decode_compact_numeric_column(
+            raw, 2, 4, additive_offset=1, apply_additive_offset=True
+        )
+        assert result == ["1", "2", "3", ""]
+
+    @pytest.mark.unit
+    def test_compact_payload_size_nibble_rounds_up(self):
+        assert _compact_payload_size(2, 5) == 3
 
     @pytest.mark.unit
     def test_extract_double_column(self):
@@ -378,6 +439,7 @@ class TestBinaryDecoding:
 #  3. Unit tests — metadata matching
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMetadataMatching:
     """Unit tests for metadata slot reading and DDI-to-slot matching."""
 
@@ -433,8 +495,71 @@ class TestMetadataMatching:
 #  4. Integration tests — full pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConvertPipeline:
     """Integration tests for full Nesstar → format conversion pipeline."""
+
+    @pytest.mark.integration
+    @pytest.mark.slow
+    @needs_plfs_resource_data
+    def test_resource_indexed_plfs_matches_nesstar_export(self):
+        """Resource-indexed PLFS payloads match Nesstar Explorer text exports."""
+        expected_exports = ["hhv1", "hhrv", "perv1", "perrv"]
+        with open(PLFS_NESSTAR_FILE, "rb") as f:
+            data = f.read()
+
+        resource_index = _parse_resource_index(data)
+        descriptor_record = resource_index[_u32le(data, DESCRIPTOR_TABLE_RECORD_ID_FIELD)]
+        descriptor_size = _u16le(data, DESCRIPTOR_RECORD_SIZE_FIELD)
+
+        for dataset_index, export_stem in enumerate(expected_exports):
+            descriptor_offset = (
+                descriptor_record["target_offset"] + dataset_index * descriptor_size
+            )
+            variable_count = _u32le(data, descriptor_offset + 4)
+            row_count = _u32le(data, descriptor_offset + 8)
+            entry_size = _u16le(data, descriptor_offset + 20)
+            directory_record_id = _u32le(data, descriptor_offset + 22)
+            directory_record = resource_index[directory_record_id]
+            variables = _parse_variable_directory(
+                data,
+                resource_index,
+                directory_record["target_offset"],
+                variable_count,
+                entry_size,
+            )
+            block = {
+                "nrecs": row_count,
+                "ddi_vars": [
+                    {
+                        "name": variable["name"],
+                        "type": "numeric"
+                        if variable["mode_code"] == 5
+                        else "character",
+                        "ddi_width": variable["width_value"],
+                        "dcml": 0,
+                    }
+                    for variable in variables
+                ],
+            }
+            layout = {"variables_by_name": {v["name"]: v for v in variables}}
+            df = extract_block_resource_indexed(data, block, layout)
+
+            export_path = PLFS_EXPORT_DIR / f"{export_stem}.txt"
+            df_exp = pd.read_csv(
+                export_path, sep="\t", header=None, dtype=str, keep_default_na=False
+            )
+            assert df.shape == df_exp.shape
+            left = df.astype(str).apply(lambda col: col.str.strip()).reset_index(
+                drop=True
+            )
+            right = (
+                df_exp.astype(str)
+                .apply(lambda col: col.str.strip())
+                .reset_index(drop=True)
+                .set_axis(left.columns, axis=1)
+            )
+            assert left.equals(right), f"{export_stem}.txt does not match extraction"
 
     @pytest.mark.integration
     @needs_real_data
@@ -467,14 +592,8 @@ class TestConvertPipeline:
         assert len(df_csv.columns) == len(df_exp.columns)
 
         # Multiset comparison
-        csv_tuples = Counter(
-            tuple(v.strip() for v in row)
-            for row in df_csv.values
-        )
-        exp_tuples = Counter(
-            tuple(v.strip() for v in row)
-            for row in df_exp.values
-        )
+        csv_tuples = Counter(tuple(v.strip() for v in row) for row in df_csv.values)
+        exp_tuples = Counter(tuple(v.strip() for v in row) for row in df_exp.values)
         assert csv_tuples == exp_tuples, "Block-10 CSV does not match text export"
 
     @pytest.mark.integration
@@ -510,12 +629,8 @@ class TestConvertPipeline:
                 f"{len(df_csv.columns)} vs {len(df_exp.columns)}"
             )
 
-            csv_tuples = Counter(
-                tuple(v.strip() for v in row) for row in df_csv.values
-            )
-            exp_tuples = Counter(
-                tuple(v.strip() for v in row) for row in df_exp.values
-            )
+            csv_tuples = Counter(tuple(v.strip() for v in row) for row in df_csv.values)
+            exp_tuples = Counter(tuple(v.strip() for v in row) for row in df_exp.values)
             assert csv_tuples == exp_tuples, (
                 f"{bname}: multiset mismatch against export {matched.name}"
             )
@@ -538,19 +653,18 @@ class TestConvertPipeline:
                 for col in df_pq.columns:
                     df_pq[col] = df_pq[col].str.strip()
 
-                export_path = (
-                    export_dir / "Block-10-Household-Loan-records.txt"
-                )
+                export_path = export_dir / "Block-10-Household-Loan-records.txt"
                 df_exp = pd.read_csv(
-                    export_path, sep="\t", header=None, dtype=str,
+                    export_path,
+                    sep="\t",
+                    header=None,
+                    dtype=str,
                     keep_default_na=False,
                 )
                 assert len(df_pq) == len(df_exp)
                 assert len(df_pq.columns) == len(df_exp.columns)
 
-                pq_tuples = Counter(
-                    tuple(row) for row in df_pq.values
-                )
+                pq_tuples = Counter(tuple(row) for row in df_pq.values)
                 exp_tuples = Counter(
                     tuple(v.strip() for v in row) for row in df_exp.values
                 )
@@ -584,14 +698,28 @@ class TestConvertPipeline:
     def test_convert_stata(self, block10_dataframe, tmp_path):
         """Convert Block-10 to Stata, read back, validate leading zeros preserved."""
         df = block10_dataframe
-        blk = {"name": "Block-10-Household-Loan-records", "nrecs": 42_853,
-               "ddi_vars": [{"name": c, "label": c, "type": "character",
-                             "ddi_width": 10, "dcml": 0} for c in df.columns]}
-        merged = [{"name": c, "label": c, "type": "character",
-                   "ddi_width": 10, "dcml": 0, "encoding": "char"}
-                  for c in df.columns]
-        files = _write_formats(df, str(tmp_path), "block_10_loan", ["stata"],
-                               blk, merged)
+        blk = {
+            "name": "Block-10-Household-Loan-records",
+            "nrecs": 42_853,
+            "ddi_vars": [
+                {"name": c, "label": c, "type": "character", "ddi_width": 10, "dcml": 0}
+                for c in df.columns
+            ],
+        }
+        merged = [
+            {
+                "name": c,
+                "label": c,
+                "type": "character",
+                "ddi_width": 10,
+                "dcml": 0,
+                "encoding": "char",
+            }
+            for c in df.columns
+        ]
+        files = _write_formats(
+            df, str(tmp_path), "block_10_loan", ["stata"], blk, merged
+        )
         assert "stata" in files
         assert "error" not in files["stata"]
         dta_path = files["stata"]["path"]
@@ -600,9 +728,7 @@ class TestConvertPipeline:
         state_col = [c for c in df_dta.columns if "state" in c.lower()]
         if state_col:
             vals = df_dta[state_col[0]].dropna().astype(str)
-            has_leading_zeros = any(
-                v.startswith("0") and len(v) > 1 for v in vals
-            )
+            has_leading_zeros = any(v.startswith("0") and len(v) > 1 for v in vals)
             assert has_leading_zeros, "Leading zeros not preserved in Stata output"
 
     @pytest.mark.integration
@@ -610,14 +736,28 @@ class TestConvertPipeline:
     def test_convert_excel(self, block10_dataframe, tmp_path):
         """Convert Block-10 to Excel, read back, validate shape."""
         df = block10_dataframe
-        blk = {"name": "Block-10-Household-Loan-records", "nrecs": 42_853,
-               "ddi_vars": [{"name": c, "label": c, "type": "character",
-                             "ddi_width": 10, "dcml": 0} for c in df.columns]}
-        merged = [{"name": c, "label": c, "type": "character",
-                   "ddi_width": 10, "dcml": 0, "encoding": "char"}
-                  for c in df.columns]
-        files = _write_formats(df, str(tmp_path), "block_10_loan", ["excel"],
-                               blk, merged)
+        blk = {
+            "name": "Block-10-Household-Loan-records",
+            "nrecs": 42_853,
+            "ddi_vars": [
+                {"name": c, "label": c, "type": "character", "ddi_width": 10, "dcml": 0}
+                for c in df.columns
+            ],
+        }
+        merged = [
+            {
+                "name": c,
+                "label": c,
+                "type": "character",
+                "ddi_width": 10,
+                "dcml": 0,
+                "encoding": "char",
+            }
+            for c in df.columns
+        ]
+        files = _write_formats(
+            df, str(tmp_path), "block_10_loan", ["excel"], blk, merged
+        )
         assert "excel" in files
         assert "error" not in files["excel"]
         xlsx_path = files["excel"]["path"]
@@ -630,11 +770,15 @@ class TestConvertPipeline:
     def test_convert_json(self, block10_dataframe, tmp_path):
         """Convert Block-10 to JSON, parse back, validate."""
         df = block10_dataframe
-        blk = {"name": "Block-10", "nrecs": 42_853,
-               "ddi_vars": [{"name": c} for c in df.columns]}
+        blk = {
+            "name": "Block-10",
+            "nrecs": 42_853,
+            "ddi_vars": [{"name": c} for c in df.columns],
+        }
         merged = [{"name": c, "ddi_width": 10} for c in df.columns]
-        files = _write_formats(df, str(tmp_path), "block_10_loan", ["json"],
-                               blk, merged)
+        files = _write_formats(
+            df, str(tmp_path), "block_10_loan", ["json"], blk, merged
+        )
         assert "json" in files
         assert "error" not in files["json"]
         with open(files["json"]["path"]) as fp:
@@ -648,11 +792,15 @@ class TestConvertPipeline:
     def test_convert_jsonl(self, block10_dataframe, tmp_path):
         """Convert Block-10 to JSONL, parse line-by-line, validate."""
         df = block10_dataframe
-        blk = {"name": "Block-10", "nrecs": 42_853,
-               "ddi_vars": [{"name": c} for c in df.columns]}
+        blk = {
+            "name": "Block-10",
+            "nrecs": 42_853,
+            "ddi_vars": [{"name": c} for c in df.columns],
+        }
         merged = [{"name": c, "ddi_width": 10} for c in df.columns]
-        files = _write_formats(df, str(tmp_path), "block_10_loan", ["jsonl"],
-                               blk, merged)
+        files = _write_formats(
+            df, str(tmp_path), "block_10_loan", ["jsonl"], blk, merged
+        )
         assert "jsonl" in files
         assert "error" not in files["jsonl"]
         records = []
@@ -669,14 +817,28 @@ class TestConvertPipeline:
     def test_convert_all_formats(self, block10_dataframe, tmp_path):
         """Write Block-10 to all formats, verify all files created."""
         df = block10_dataframe
-        blk = {"name": "Block-10-Household-Loan-records", "nrecs": 42_853,
-               "ddi_vars": [{"name": c, "label": c, "type": "character",
-                             "ddi_width": 10, "dcml": 0} for c in df.columns]}
-        merged = [{"name": c, "label": c, "type": "character",
-                   "ddi_width": 10, "dcml": 0, "encoding": "char"}
-                  for c in df.columns]
-        files = _write_formats(df, str(tmp_path), "block_10_loan",
-                               ALL_FORMATS, blk, merged)
+        blk = {
+            "name": "Block-10-Household-Loan-records",
+            "nrecs": 42_853,
+            "ddi_vars": [
+                {"name": c, "label": c, "type": "character", "ddi_width": 10, "dcml": 0}
+                for c in df.columns
+            ],
+        }
+        merged = [
+            {
+                "name": c,
+                "label": c,
+                "type": "character",
+                "ddi_width": 10,
+                "dcml": 0,
+                "encoding": "char",
+            }
+            for c in df.columns
+        ]
+        files = _write_formats(
+            df, str(tmp_path), "block_10_loan", ALL_FORMATS, blk, merged
+        )
         for fmt in ALL_FORMATS:
             assert fmt in files, f"Missing format {fmt}"
             finfo = files[fmt]
@@ -708,6 +870,7 @@ class TestConvertPipeline:
 # ═══════════════════════════════════════════════════════════════════════════
 #  5. Validation tests
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestValidation:
     """Tests for validation logic."""
@@ -752,9 +915,7 @@ class TestValidation:
         df = pd.DataFrame({"a": ["1"], "b": ["2"]})
         blk = {"nrecs": 1, "ddi_vars": [{"name": "a"}, {"name": "b"}]}
         result = _validate_block(df, blk, "test_block")
-        col_check = next(
-            c for c in result["checks"] if c["check"] == "column_count"
-        )
+        col_check = next(c for c in result["checks"] if c["check"] == "column_count")
         assert col_check["passed"] is True
 
         # Mismatched (tolerance is ±3)
@@ -773,6 +934,7 @@ class TestValidation:
 #  6. CLI tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCLI:
     """Tests for CLI entry-point behaviour."""
 
@@ -783,7 +945,9 @@ class TestCLI:
         """Run `formats` command, check output lists all formats."""
         result = subprocess.run(
             [sys.executable, self._SCRIPT, "formats"],
-            capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         for fmt in ALL_FORMATS:
@@ -794,7 +958,9 @@ class TestCLI:
         """No command prints help and exits 0."""
         result = subprocess.run(
             [sys.executable, self._SCRIPT],
-            capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
         )
         assert result.returncode == 0
         assert "convert" in result.stdout.lower() or "convert" in result.stderr.lower()
@@ -804,11 +970,18 @@ class TestCLI:
         """Invalid format name exits with code 2."""
         result = subprocess.run(
             [
-                sys.executable, self._SCRIPT,
-                "convert", "fake.Nesstar", "fake.xml", "/dev/null",
-                "--formats", "banana",
+                sys.executable,
+                self._SCRIPT,
+                "convert",
+                "fake.Nesstar",
+                "fake.xml",
+                "/dev/null",
+                "--formats",
+                "banana",
             ],
-            capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
         )
         assert result.returncode == 2
 
@@ -818,10 +991,15 @@ class TestCLI:
         """Run info on real file, check output."""
         result = subprocess.run(
             [
-                sys.executable, self._SCRIPT,
-                "info", NESSTAR_FILE, DDI_FILE,
+                sys.executable,
+                self._SCRIPT,
+                "info",
+                NESSTAR_FILE,
+                DDI_FILE,
             ],
-            capture_output=True, text=True, cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
         )
         assert result.returncode == 0, f"stderr: {result.stderr}"
         assert "NESSTART" in result.stdout or "NESSTAR" in result.stdout
@@ -832,12 +1010,16 @@ class TestCLI:
 #  7. Edge case tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     """Tests for helper functions and edge cases."""
 
     @pytest.mark.unit
     def test_safe_name_basic(self):
-        assert _safe_name("Block-10-Household-Loan-records") == "block_10_household_loan_records"
+        assert (
+            _safe_name("Block-10-Household-Loan-records")
+            == "block_10_household_loan_records"
+        )
 
     @pytest.mark.unit
     def test_safe_name_special_chars(self):
@@ -917,8 +1099,11 @@ class TestEdgeCases:
             pytest.skip("Real data not available")
         with pytest.raises(ValueError, match="Unknown format"):
             convert_nesstar(
-                NESSTAR_FILE, DDI_FILE, str(tmp_path),
-                formats=["banana"], verbose=False,
+                NESSTAR_FILE,
+                DDI_FILE,
+                str(tmp_path),
+                formats=["banana"],
+                verbose=False,
             )
 
     @pytest.mark.unit

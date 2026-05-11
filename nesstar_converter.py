@@ -41,6 +41,7 @@ import sys
 import textwrap
 import xml.etree.ElementTree as ET
 from collections import Counter
+from fractions import Fraction
 from pathlib import Path
 
 import numpy as np
@@ -65,6 +66,29 @@ SLOT_SIZE = 160
 DBL_MAX_BYTES = struct.pack("<d", 1.7976931348623157e308)
 DBL_MAX_VAL = 1.7976931348623157e308
 NESSTAR_MAGIC = b"NESSTART"
+RESOURCE_INDEX_OFFSET_FIELD = 0x25
+DATASET_COUNT_FIELD = 0x2B
+DESCRIPTOR_RECORD_SIZE_FIELD = 0x2D
+DESCRIPTOR_TABLE_RECORD_ID_FIELD = 0x2F
+RESOURCE_INDEX_RECORD_SIZE = 15
+COMPACT_WIDTHS = {
+    2: Fraction(1, 2),
+    3: Fraction(1, 1),
+    4: Fraction(2, 1),
+    5: Fraction(3, 1),
+    6: Fraction(4, 1),
+    7: Fraction(5, 1),
+    10: Fraction(8, 1),
+}
+COMPACT_FAMILIES = {
+    2: "nibble",
+    3: "uint8",
+    4: "uint16",
+    5: "uint24",
+    6: "uint32",
+    7: "uint40",
+    10: "double",
+}
 
 ALL_FORMATS = ["parquet", "csv", "tsv", "excel", "stata", "json", "jsonl", "fwf"]
 
@@ -276,6 +300,194 @@ def compute_binary_width(var_spec: dict, slot_info: dict) -> int:
         ddi_w = var_spec.get("ddi_width", 1)
         max_val = 10**ddi_w - 1
         return max(1, math.ceil(max_val.bit_length() / 8))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Resource-Indexed Container Reader
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _u16le(data: bytes, offset: int) -> int:
+    """Read a little-endian unsigned 16-bit integer."""
+    return int.from_bytes(data[offset : offset + 2], "little")
+
+
+def _u32le(data: bytes, offset: int) -> int:
+    """Read a little-endian unsigned 32-bit integer."""
+    return int.from_bytes(data[offset : offset + 4], "little")
+
+
+def _parse_resource_index(data: bytes) -> dict[int, dict]:
+    """Parse the trailing Nesstar resource index if the file exposes one.
+
+    Modern Nesstar containers carry a record-id → payload-offset table near
+    the end of the file. When present, those offsets are more authoritative
+    than DDI-derived width inference.
+    """
+    if len(data) < DESCRIPTOR_TABLE_RECORD_ID_FIELD + 4:
+        return {}
+
+    index_offset = _u32le(data, RESOURCE_INDEX_OFFSET_FIELD)
+    if index_offset <= 0 or index_offset + 4 > len(data):
+        return {}
+
+    record_count = _u32le(data, index_offset)
+    records_start = index_offset + 4
+    records_end = records_start + record_count * RESOURCE_INDEX_RECORD_SIZE
+    if record_count <= 0 or records_end > len(data):
+        return {}
+
+    index = {}
+    for i in range(record_count):
+        off = records_start + i * RESOURCE_INDEX_RECORD_SIZE
+        record_id = _u32le(data, off)
+        target_offset = _u32le(data, off + 4)
+        length = _u32le(data, off + 10)
+        if target_offset < len(data) and target_offset + length <= len(data):
+            index[record_id] = {
+                "record_id": record_id,
+                "target_offset": target_offset,
+                "length": length,
+            }
+    return index
+
+
+def _decode_directory_name(entry: bytes) -> str:
+    """Decode the UTF-16LE variable name field in a directory entry."""
+    raw = entry[63 : 63 + 64]
+    return raw.decode("utf-16-le", errors="ignore").split("\x00", 1)[0]
+
+
+def _parse_variable_directory(
+    data: bytes,
+    resource_index: dict[int, dict],
+    directory_offset: int,
+    variable_count: int,
+    entry_size: int,
+) -> list[dict]:
+    """Parse a dataset's variable directory without assuming consecutive IDs."""
+    if directory_offset < 0 or entry_size < SLOT_SIZE:
+        return []
+    if directory_offset + variable_count * entry_size > len(data):
+        return []
+
+    variables = []
+    for i in range(variable_count):
+        start = directory_offset + i * entry_size
+        entry = data[start : start + entry_size]
+        name = _decode_directory_name(entry)
+        if not name:
+            continue
+
+        variable_id = _u32le(entry, 15)
+        record = resource_index.get(variable_id)
+        if record is None:
+            continue
+
+        variables.append(
+            {
+                "entry_index": _u32le(entry, 0),
+                "name": name,
+                "width_value": entry[149],
+                "variable_id": variable_id,
+                "label_resource_id": _u32le(entry, 127),
+                "category_resource_id": _u16le(entry, 131),
+                "object_id": _u32le(entry, 155),
+                "mode_code": entry[159],
+                "value_format_code": entry[5],
+                "value_offset_i64": int.from_bytes(entry[6:14], "little", signed=True),
+                "start": record["target_offset"],
+                "size": record["length"],
+            }
+        )
+    return variables
+
+
+def _parse_resource_layouts(data: bytes, blocks: dict) -> dict:
+    """Return DDI block id → resource-indexed dataset layout.
+
+    The layout parser is intentionally tolerant: older MoSPI files can have
+    non-consecutive variable-directory entry numbers and record ids, but the
+    resource index still points to valid column payloads.
+    """
+    resource_index = _parse_resource_index(data)
+    if not resource_index:
+        return {}
+
+    dataset_count = data[DATASET_COUNT_FIELD] if len(data) > DATASET_COUNT_FIELD else 0
+    descriptor_size = _u16le(data, DESCRIPTOR_RECORD_SIZE_FIELD)
+    descriptor_record_id = _u32le(data, DESCRIPTOR_TABLE_RECORD_ID_FIELD)
+    descriptor_record = resource_index.get(descriptor_record_id)
+    if dataset_count <= 0 or descriptor_size <= 0 or descriptor_record is None:
+        return {}
+
+    descriptor_offset = descriptor_record["target_offset"]
+    descriptors = []
+    for i in range(dataset_count):
+        off = descriptor_offset + i * descriptor_size
+        if off + max(descriptor_size, 26) > len(data):
+            break
+        variable_count = _u32le(data, off + 4)
+        row_count = _u32le(data, off + 8)
+        entry_size = _u16le(data, off + 20)
+        directory_record_id = _u32le(data, off + 22)
+        directory_record = resource_index.get(directory_record_id)
+        if variable_count <= 0 or row_count <= 0 or directory_record is None:
+            continue
+
+        variables = _parse_variable_directory(
+            data,
+            resource_index,
+            directory_record["target_offset"],
+            variable_count,
+            entry_size,
+        )
+        if not variables:
+            continue
+
+        descriptors.append(
+            {
+                "dataset_number": _u32le(data, off),
+                "variable_count": variable_count,
+                "row_count": row_count,
+                "directory_offset": directory_record["target_offset"],
+                "entry_size": entry_size,
+                "variables": variables,
+                "variables_by_name": {v["name"]: v for v in variables},
+            }
+        )
+
+    if not descriptors:
+        return {}
+
+    layouts = {}
+    unused = set(range(len(descriptors)))
+    for fid, blk in sorted(blocks.items(), key=lambda x: x[1]["fid_num"]):
+        ddi_names = {v["name"] for v in blk["ddi_vars"]}
+        best_idx = None
+        best_score = -1
+        for idx in list(unused):
+            desc = descriptors[idx]
+            desc_names = set(desc["variables_by_name"])
+            score = len(ddi_names & desc_names)
+            if blk["nrecs"] == desc["row_count"]:
+                score += 10_000
+            if len(blk["ddi_vars"]) == desc["variable_count"]:
+                score += 1_000
+            if score > best_score:
+                best_score = score
+                best_idx = idx
+
+        if best_idx is None:
+            continue
+        desc = descriptors[best_idx]
+        overlap = len(ddi_names & set(desc["variables_by_name"]))
+        if overlap == 0:
+            continue
+        layouts[fid] = desc
+        unused.remove(best_idx)
+
+    return layouts
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -549,6 +761,16 @@ def _extract_char_column(col_data: bytes, width: int, nrecs: int) -> list:
     return values
 
 
+def _extract_cstring_column(col_data: bytes, width: int, nrecs: int) -> list:
+    """Extract NUL-terminated byte-string slots from resource-indexed files."""
+    values = []
+    for i in range(nrecs):
+        raw = col_data[i * width : (i + 1) * width].split(b"\x00", 1)[0]
+        val = raw.decode("utf-8", errors="replace").strip()
+        values.append(val if val else "")
+    return values
+
+
 def _extract_double_column(col_data: bytes, nrecs: int, dcml: int) -> list:
     """Extract double-precision column: 8-byte IEEE 754 floats."""
     arr = np.frombuffer(col_data, dtype="<f8", count=nrecs)
@@ -579,6 +801,193 @@ def _extract_offset_column(
             val = int.from_bytes(raw, "little") + offset_min
             values.append(str(val))
     return values
+
+
+def _compact_payload_size(format_code: int, nrecs: int) -> int | None:
+    """Return encoded byte size for a compact numeric format."""
+    width = COMPACT_WIDTHS.get(format_code)
+    if width is None:
+        return None
+    if width == Fraction(1, 2):
+        return (nrecs + 1) // 2
+    size = width * nrecs
+    if size.denominator != 1:
+        return None
+    return size.numerator
+
+
+def _format_float_value(value: float, dcml: int) -> str:
+    """Format a decoded float while preserving integer-looking values."""
+    if np.isnan(value) or value >= DBL_MAX_VAL * 0.99:
+        return ""
+    if value == int(value):
+        return str(int(value))
+    return f"{value:.{max(dcml, 6)}f}".rstrip("0").rstrip(".")
+
+
+def _decode_compact_numeric_column(
+    col_data: bytes,
+    format_code: int,
+    nrecs: int,
+    *,
+    dcml: int = 0,
+    additive_offset: int | None = None,
+    apply_additive_offset: bool = True,
+) -> list:
+    """Decode resource-indexed compact numeric payloads."""
+    family = COMPACT_FAMILIES.get(format_code)
+    if family is None:
+        raise ValueError(f"Unsupported compact numeric format code: {format_code}")
+
+    values = []
+    if family == "double":
+        arr = np.frombuffer(col_data[: nrecs * 8], dtype="<f8", count=nrecs)
+        return [_format_float_value(float(d), dcml) for d in arr]
+
+    missing_markers = {
+        "nibble": 0x0F,
+        "uint8": 0xFF,
+        "uint16": 0xFFFF,
+        "uint24": 0xFFFFFF,
+        "uint32": 0xFFFFFFFF,
+        "uint40": 0xFFFFFFFFFF,
+    }
+    missing = missing_markers[family]
+    offset = additive_offset if apply_additive_offset and additive_offset else 0
+
+    if family == "nibble":
+        for i in range(nrecs):
+            raw_byte = col_data[i // 2]
+            raw = (raw_byte >> 4) & 0x0F if i % 2 == 0 else raw_byte & 0x0F
+            values.append("" if raw == missing else str(raw + offset))
+        return values
+
+    byte_width = {
+        "uint8": 1,
+        "uint16": 2,
+        "uint24": 3,
+        "uint32": 4,
+        "uint40": 5,
+    }[family]
+
+    for i in range(nrecs):
+        start = i * byte_width
+        raw = int.from_bytes(col_data[start : start + byte_width], "little")
+        values.append("" if raw == missing else str(raw + offset))
+    return values
+
+
+def _looks_like_raw_byte_numeric(col_data: bytes, nrecs: int, width: int) -> bool:
+    """Detect one-byte numeric payloads incorrectly marked as text slots."""
+    if width != 1 or len(col_data) < nrecs:
+        return False
+    sample = col_data[: min(nrecs, 1000)]
+    if not sample:
+        return False
+    non_printable = sum(1 for b in sample if b not in (0, 9, 10, 13) and b < 32)
+    return non_printable / len(sample) > 0.25
+
+
+def extract_block_resource_indexed(
+    data: bytes, block_info: dict, layout: dict
+) -> pd.DataFrame:
+    """Extract one block using exact payload spans from the resource index."""
+    nrecs = block_info["nrecs"]
+    result = {}
+    variables_by_name = layout["variables_by_name"]
+
+    for var_spec in block_info["ddi_vars"]:
+        name = var_spec["name"]
+        entry = variables_by_name.get(name)
+        if entry is None:
+            raise ValueError(f"Resource-indexed layout has no variable {name!r}")
+
+        start = entry["start"]
+        size = entry["size"]
+        col_data = data[start : start + size]
+        if len(col_data) < size:
+            raise ValueError(
+                f"Truncated payload for {name}: got {len(col_data)}, need {size}"
+            )
+
+        format_code = entry["value_format_code"]
+        compact_size = _compact_payload_size(format_code, nrecs)
+        is_numeric_format = compact_size == size and format_code in COMPACT_FAMILIES
+        is_declared_numeric = var_spec.get("type") == "numeric"
+
+        if entry["mode_code"] == 5 or (is_declared_numeric and is_numeric_format):
+            values = _decode_compact_numeric_column(
+                col_data,
+                format_code,
+                nrecs,
+                dcml=var_spec.get("dcml", 0),
+                additive_offset=entry.get("value_offset_i64", 0),
+                apply_additive_offset=entry["mode_code"] == 5,
+            )
+        else:
+            declared_width = entry.get("width_value", 0)
+            expected_size = declared_width * nrecs if declared_width and nrecs else 0
+            if expected_size == size:
+                width = declared_width
+            elif nrecs and size % nrecs == 0:
+                width = size // nrecs
+            else:
+                raise ValueError(
+                    f"Payload size for {name!r} ({size} bytes) is not divisible "
+                    f"by row count {nrecs} and does not match declared width "
+                    f"{declared_width}"
+                )
+            if width <= 0:
+                raise ValueError(f"Invalid text width for {name!r}: {width}")
+            if is_declared_numeric and _looks_like_raw_byte_numeric(
+                col_data, nrecs, width
+            ):
+                values = _decode_compact_numeric_column(
+                    col_data,
+                    3,
+                    nrecs,
+                    dcml=var_spec.get("dcml", 0),
+                    apply_additive_offset=False,
+                )
+            elif entry.get("mode_code") == 1:
+                values = _extract_cstring_column(col_data, width, nrecs)
+            else:
+                values = _extract_char_column(col_data, width, nrecs)
+
+        result[name] = values
+
+    return pd.DataFrame(result)
+
+
+def _merge_resource_vars_for_metadata(block_info: dict, layout: dict) -> list[dict]:
+    """Build variable metadata for writers/reports from resource-index entries."""
+    merged = []
+    by_name = layout["variables_by_name"]
+    for i, var_spec in enumerate(block_info["ddi_vars"]):
+        entry = by_name.get(var_spec["name"], {})
+        format_code = entry.get("value_format_code")
+        if entry.get("mode_code") == 5:
+            encoding = COMPACT_FAMILIES.get(format_code, "compact")
+        elif format_code in COMPACT_FAMILIES and var_spec.get("type") == "numeric":
+            encoding = COMPACT_FAMILIES[format_code]
+        else:
+            encoding = "char"
+
+        merged.append(
+            {
+                **var_spec,
+                **entry,
+                "slot_index": i,
+                "var_num": entry.get("entry_index", i),
+                "encoding": encoding,
+                "binary_width": (
+                    _compact_payload_size(format_code, block_info["nrecs"])
+                    if entry.get("mode_code") == 5
+                    else entry.get("width_value", var_spec.get("ddi_width", 0))
+                ),
+            }
+        )
+    return merged
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -658,16 +1067,22 @@ def convert_nesstar(
             # Find metadata sections
             if verbose:
                 print("\nStep 3/4: Locating data blocks in binary...")
+            resource_layouts = _parse_resource_layouts(data, blocks)
             meta_map = find_metadata_sections(data, blocks)
 
-            if not meta_map:
+            if not meta_map and not resource_layouts:
                 raise RuntimeError(
                     "Could not find any data blocks in the Nesstar binary. "
                     "The file may be corrupted or use an unsupported format variant."
                 )
 
             if verbose:
-                print(f"  Located {len(meta_map)}/{len(blocks)} blocks")
+                if resource_layouts:
+                    print(
+                        f"  Resource index: {len(resource_layouts)}/{len(blocks)} blocks"
+                    )
+                if meta_map:
+                    print(f"  Metadata scan : {len(meta_map)}/{len(blocks)} blocks")
 
             os.makedirs(output_dir, exist_ok=True)
             report = {
@@ -692,8 +1107,10 @@ def convert_nesstar(
             for fid, blk in progress:
                 block_name = _safe_name(blk["name"])
 
-                if fid not in meta_map:
-                    msg = f"Skipped {fid} ({blk['name']}): metadata not found in binary"
+                if fid not in resource_layouts and fid not in meta_map:
+                    msg = (
+                        f"Skipped {fid} ({blk['name']}): data block not found in binary"
+                    )
                     report["errors"].append(msg)
                     if verbose and not HAS_TQDM:
                         print(f"  ⚠ {msg}")
@@ -702,16 +1119,37 @@ def convert_nesstar(
                 if HAS_TQDM:
                     progress.set_postfix_str(block_name[:30])
 
-                meta_start = meta_map[fid]
                 nvars = len(blk["ddi_vars"])
 
                 try:
-                    actual_nslots = _count_actual_slots(data, meta_start)
-                    read_count = nvars if actual_nslots >= nvars else actual_nslots
-                    slots = read_metadata_slots(data, meta_start, read_count)
-                    merged = match_ddi_to_slots(blk["ddi_vars"], slots)
-
-                    df = extract_block(data, blk, merged, meta_start)
+                    extraction_method = "metadata_scan"
+                    if fid in resource_layouts:
+                        try:
+                            df = extract_block_resource_indexed(
+                                data, blk, resource_layouts[fid]
+                            )
+                            merged = _merge_resource_vars_for_metadata(
+                                blk, resource_layouts[fid]
+                            )
+                            extraction_method = "resource_index"
+                        except Exception:
+                            if fid not in meta_map:
+                                raise
+                            meta_start = meta_map[fid]
+                            actual_nslots = _count_actual_slots(data, meta_start)
+                            read_count = (
+                                nvars if actual_nslots >= nvars else actual_nslots
+                            )
+                            slots = read_metadata_slots(data, meta_start, read_count)
+                            merged = match_ddi_to_slots(blk["ddi_vars"], slots)
+                            df = extract_block(data, blk, merged, meta_start)
+                    else:
+                        meta_start = meta_map[fid]
+                        actual_nslots = _count_actual_slots(data, meta_start)
+                        read_count = nvars if actual_nslots >= nvars else actual_nslots
+                        slots = read_metadata_slots(data, meta_start, read_count)
+                        merged = match_ddi_to_slots(blk["ddi_vars"], slots)
+                        df = extract_block(data, blk, merged, meta_start)
 
                     # Validate extracted data
                     validation = _validate_block(df, blk, block_name)
@@ -738,6 +1176,7 @@ def convert_nesstar(
                         "rows": len(df),
                         "columns": len(df.columns),
                         "column_names": list(df.columns),
+                        "extraction_method": extraction_method,
                         "files": files_written,
                         "encoding_counts": {
                             "char": n_char,
