@@ -26,7 +26,16 @@ rectangular dataset (rows × columns). The binary format is **column-major**
 (columnar): all N values for column 0 are stored contiguously, then all N values
 for column 1, and so on.
 
-### Block layout (logical order in file)
+Two container layouts are currently handled:
+
+1. **Resource-indexed layout**: the header points to a trailing record index,
+   which maps variable record IDs directly to payload offsets and byte lengths.
+   This is the preferred path because it avoids guessing column widths.
+2. **Metadata-adjacent fallback**: if no usable resource index is found, the
+   converter locates 160-byte metadata slots and computes the data region
+   immediately before metadata.
+
+### Metadata-adjacent block layout (fallback)
 
 ```
 ┌──────────────────────────────────────┐
@@ -56,6 +65,20 @@ where:
 
 Data sits **immediately before** metadata. The converter locates metadata first,
 then calculates backwards to find the data region.
+
+### Resource-indexed layout (preferred)
+
+Some files store a trailing resource index. In these containers:
+
+- Header offset `0x25` points to the trailing resource-index count
+- Header offset `0x2F` gives the record ID of the dataset descriptor table
+- Each descriptor gives the variable-directory record ID
+- Each variable-directory entry gives a variable record ID
+- The trailing resource index maps that variable record ID to the exact payload
+  offset and length
+
+This path is required for compact encodings such as nibble-packed numeric
+columns, where one observation can use less than one byte.
 
 ---
 
@@ -133,7 +156,26 @@ Example (range_min = 0, range_max = 50000, width = 2 bytes LE):
 0xFF 0xFF  →  missing (NaN)
 ```
 
-### 4.3 double — IEEE 754 float64
+### 4.3 compact numeric encodings
+
+Resource-indexed variable-directory entries can identify the physical numeric
+encoding directly. Known format codes:
+
+| Code | Physical width | Meaning |
+|---|---:|---|
+| `2` | 1/2 byte per record | nibble-packed unsigned codes |
+| `3` | 1 byte per record | unsigned byte |
+| `4` | 2 bytes per record | little-endian `uint16` |
+| `5` | 3 bytes per record | little-endian `uint24` |
+| `6` | 4 bytes per record | little-endian `uint32` |
+| `7` | 5 bytes per record | little-endian `uint40` |
+| `10` | 8 bytes per record | little-endian IEEE 754 double |
+
+For nibble-packed values, even-numbered rows use the high nibble and odd-numbered
+rows use the low nibble. The all-ones value for each physical width is treated
+as missing.
+
+### 4.4 double — IEEE 754 float64
 
 Floating-point values are stored as standard 8-byte IEEE 754 doubles.
 
@@ -162,15 +204,20 @@ reconciles with DDI labels and value-label mappings after extraction.
 
 ---
 
-## 6. Metadata Discovery
+## 6. Block Discovery
 
-The converter locates the metadata region by scanning the binary file for known
-variable names. Variable names from the DDI companion file are encoded as
-**UTF-16-LE** strings and searched for within the binary. Once a match is found,
-the converter aligns to the nearest 160-byte slot boundary to locate the start
-of the metadata region.
+The converter first attempts resource-indexed discovery. If the file exposes a
+valid trailing resource index, the converter maps each DDI file block to a
+dataset descriptor using row counts, variable counts, and variable-name overlap,
+then reads each variable payload by its exact offset and length.
 
-### Discovery algorithm (simplified)
+If that layout is unavailable, the converter falls back to metadata discovery by
+scanning the binary file for known variable names. Variable names from the DDI
+companion file are encoded as **UTF-16-LE** strings and searched for within the
+binary. Once a match is found, the converter aligns to the nearest 160-byte slot
+boundary to locate the start of the metadata region.
+
+### Fallback discovery algorithm (simplified)
 
 1. Parse DDI XML to extract expected variable names.
 2. Encode each name as UTF-16-LE.
