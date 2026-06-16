@@ -38,6 +38,8 @@ from nesstar_converter import (
     _safe_name,
     _u16le,
     _u32le,
+    _u48le,
+    RESOURCE_INDEX_OFFSET_FIELD,
     _validate_block,
     _write_formats,
     DESCRIPTOR_RECORD_SIZE_FIELD,
@@ -433,6 +435,130 @@ class TestBinaryDecoding:
             f"Width {w} cannot represent delta {delta} "
             f"(max representable={max_representable})"
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  2b. Unit tests — resource index offsets and doubled payloads (synthetic)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+def _make_resource_indexed_file(records, index_offset=64, total_size=256):
+    """Build a minimal synthetic container with a resource index.
+
+    records: list of (record_id, target_offset, length) with 48-bit offsets.
+    """
+    data = bytearray(total_size)
+    struct.pack_into("<I", data, RESOURCE_INDEX_OFFSET_FIELD, index_offset & 0xFFFFFFFF)
+    struct.pack_into("<H", data, RESOURCE_INDEX_OFFSET_FIELD + 4, index_offset >> 32)
+    struct.pack_into("<I", data, index_offset, len(records))
+    for i, (rid, target, length) in enumerate(records):
+        off = index_offset + 4 + i * 15
+        struct.pack_into("<I", data, off, rid)
+        struct.pack_into("<I", data, off + 4, target & 0xFFFFFFFF)
+        struct.pack_into("<H", data, off + 8, target >> 32)
+        struct.pack_into("<I", data, off + 10, length)
+    return bytes(data)
+
+
+class TestResourceIndexOffsets:
+    """48-bit resource-index offsets (low u32 + high u16)."""
+
+    @pytest.mark.unit
+    def test_u48le_combines_low_u32_and_high_u16(self):
+        data = struct.pack("<IH", 0x89ABCDEF, 0x1234)
+        assert _u48le(data, 0) == 0x123489ABCDEF
+
+    @pytest.mark.unit
+    def test_u48le_matches_u32_when_high_word_zero(self):
+        """Files < 4 GiB have a zero high word: u48 read equals legacy u32."""
+        data = struct.pack("<IH", 0xDEADBEEF, 0)
+        assert _u48le(data, 0) == _u32le(data, 0) == 0xDEADBEEF
+
+    @pytest.mark.unit
+    def test_parse_resource_index_small_file_unchanged(self):
+        """Zero high words: parse is byte-identical to the legacy u32 path."""
+        data = _make_resource_indexed_file([(1, 100, 4), (2, 110, 8)])
+        index = _parse_resource_index(data)
+        assert index == {
+            1: {"record_id": 1, "target_offset": 100, "length": 4},
+            2: {"record_id": 2, "target_offset": 110, "length": 8},
+        }
+
+    @pytest.mark.unit
+    def test_parse_resource_index_reads_high_word(self):
+        """Bytes +8..+9 of a record are the offset's high u16, not padding.
+
+        A record whose true 48-bit offset lies beyond this small file must be
+        dropped by the bounds check — a u32-only reader would mistake it for
+        a valid in-bounds offset (the low word) and return a garbage span.
+        """
+        beyond_4gib = (1 << 32) + 10  # low u32 = 10, high u16 = 1
+        data = _make_resource_indexed_file([(1, 100, 4), (2, beyond_4gib, 4)])
+        index = _parse_resource_index(data)
+        assert 1 in index
+        assert 2 not in index, (
+            "high u16 of target_offset was ignored: 48-bit offset truncated to u32"
+        )
+
+
+class TestDoubledPayloads:
+    """Columns whose payload is stored twice back-to-back (NSS 68 pattern)."""
+
+    @staticmethod
+    def _run_single_column(payload, var_spec, entry_overrides):
+        entry = {
+            "start": 0,
+            "size": len(payload),
+            "value_format_code": 0,
+            "mode_code": 0,
+            "width_value": 0,
+            "value_offset_i64": 0,
+            **entry_overrides,
+        }
+        block = {"nrecs": var_spec.pop("nrecs"), "ddi_vars": [var_spec]}
+        layout = {"variables_by_name": {var_spec["name"]: entry}}
+        return extract_block_resource_indexed(payload, block, layout)
+
+    @pytest.mark.unit
+    def test_doubled_char_payload_uses_declared_width(self):
+        """size == 2 * width * nrecs: take the first copy, not width*2 cells."""
+        half = b"ab" + b"cd" + b"ef"
+        df = self._run_single_column(
+            half + half,
+            {"name": "HHID", "type": "character", "dcml": 0, "nrecs": 3},
+            {"width_value": 2},
+        )
+        assert list(df["HHID"]) == ["ab", "cd", "ef"]
+
+    @pytest.mark.unit
+    def test_doubled_double_payload_truncated_before_decode(self):
+        """Doubled float64 payload decodes from the first copy."""
+        half = struct.pack("<2d", 1.5, 42.0)
+        df = self._run_single_column(
+            half + half,
+            {"name": "MPCE", "type": "numeric", "dcml": 2, "nrecs": 2},
+            {"value_format_code": 10},  # double
+        )
+        assert list(df["MPCE"]) == ["1.5", "42"]
+
+    @pytest.mark.unit
+    def test_single_char_payload_still_uses_declared_width(self):
+        df = self._run_single_column(
+            b"ab" + b"cd",
+            {"name": "V", "type": "character", "dcml": 0, "nrecs": 2},
+            {"width_value": 2},
+        )
+        assert list(df["V"]) == ["ab", "cd"]
+
+    @pytest.mark.unit
+    def test_width_inference_fallback_preserved(self):
+        """No declared width and an un-doubled payload: size // nrecs survives."""
+        df = self._run_single_column(
+            b"abc" + b"def",
+            {"name": "V", "type": "character", "dcml": 0, "nrecs": 2},
+            {"width_value": 0},
+        )
+        assert list(df["V"]) == ["abc", "def"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════

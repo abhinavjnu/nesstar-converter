@@ -317,17 +317,28 @@ def _u32le(data: bytes, offset: int) -> int:
     return int.from_bytes(data[offset : offset + 4], "little")
 
 
+def _u48le(data: bytes, offset: int) -> int:
+    """Read a little-endian unsigned 48-bit integer (low u32 + high u16)."""
+    return _u32le(data, offset) | (_u16le(data, offset + 4) << 32)
+
+
 def _parse_resource_index(data: bytes) -> dict[int, dict]:
     """Parse the trailing Nesstar resource index if the file exposes one.
 
     Modern Nesstar containers carry a record-id → payload-offset table near
     the end of the file. When present, those offsets are more authoritative
     than DDI-derived width inference.
+
+    File offsets (the header field at RESOURCE_INDEX_OFFSET_FIELD and each
+    record's target_offset) are 48-bit little-endian: a low u32 followed by
+    a high u16. Containers > 4 GiB exist in the wild (e.g. MoSPI NSS 68 at
+    4.65 GB); reading only the low u32 truncates their offsets. For smaller
+    files the high u16 is zero, so the u48 read is byte-identical.
     """
     if len(data) < DESCRIPTOR_TABLE_RECORD_ID_FIELD + 4:
         return {}
 
-    index_offset = _u32le(data, RESOURCE_INDEX_OFFSET_FIELD)
+    index_offset = _u48le(data, RESOURCE_INDEX_OFFSET_FIELD)
     if index_offset <= 0 or index_offset + 4 > len(data):
         return {}
 
@@ -341,7 +352,7 @@ def _parse_resource_index(data: bytes) -> dict[int, dict]:
     for i in range(record_count):
         off = records_start + i * RESOURCE_INDEX_RECORD_SIZE
         record_id = _u32le(data, off)
-        target_offset = _u32le(data, off + 4)
+        target_offset = _u48le(data, off + 4)
         length = _u32le(data, off + 10)
         if target_offset < len(data) and target_offset + length <= len(data):
             index[record_id] = {
@@ -912,8 +923,20 @@ def extract_block_resource_indexed(
 
         format_code = entry["value_format_code"]
         compact_size = _compact_payload_size(format_code, nrecs)
-        is_numeric_format = compact_size == size and format_code in COMPACT_FAMILIES
         is_declared_numeric = var_spec.get("type") == "numeric"
+
+        # Some containers (e.g. MoSPI NSS 68) store a column's payload twice
+        # back-to-back, so the indexed length is 2x the true size. Keep the
+        # first copy; the second is a byte-for-byte repeat.
+        if (
+            compact_size
+            and size == 2 * compact_size
+            and (entry["mode_code"] == 5 or is_declared_numeric)
+        ):
+            size = compact_size
+            col_data = col_data[:size]
+
+        is_numeric_format = compact_size == size and format_code in COMPACT_FAMILIES
 
         if entry["mode_code"] == 5 or (is_declared_numeric and is_numeric_format):
             values = _decode_compact_numeric_column(
@@ -929,6 +952,12 @@ def extract_block_resource_indexed(
             expected_size = declared_width * nrecs if declared_width and nrecs else 0
             if expected_size == size:
                 width = declared_width
+            elif expected_size and size == 2 * expected_size:
+                # Doubled char payload (see above): honor the declared width
+                # and read the first copy. Inferring width as size // nrecs
+                # would glue consecutive values into pairs.
+                width = declared_width
+                col_data = col_data[:expected_size]
             elif nrecs and size % nrecs == 0:
                 width = size // nrecs
             else:
