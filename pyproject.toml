@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nesstar-converter"
-version = "1.0.3"
+version = "1.0.4"
 description = "Read your own data — pure-Python parser for locked Nesstar survey files"
 readme = "README.md"
 license = "MIT"

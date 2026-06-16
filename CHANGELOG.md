@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.4] - 2026-06-16
+
+### Fixed
+- Parse 48-bit little-endian resource-index offsets for containers larger than 4 GiB; u32-only reads silently dropped the index and fell back to lossy metadata scanning ([#4](https://github.com/abhinavjnu/nesstar-converter/issues/4), thanks [@adamlooney](https://github.com/adamlooney))
+- Detect doubled column payloads (size = 2× true width) and decode the first copy instead of gluing consecutive values ([#5](https://github.com/abhinavjnu/nesstar-converter/issues/5), thanks [@adamlooney](https://github.com/adamlooney))
+
+### Added
+- Synthetic unit tests for 48-bit resource-index offsets and doubled payload handling
+
 ## [1.0.3] - 2026-05-11
 
 ### Added
