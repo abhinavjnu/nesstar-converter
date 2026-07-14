@@ -23,6 +23,21 @@ pub enum PipelineError {
     OutputExists(PathBuf),
 }
 
+fn sanitize_name(name: &str) -> String {
+    let mut safe = String::new();
+    let mut last_was_under = false;
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            safe.push(c.to_ascii_lowercase());
+            last_was_under = false;
+        } else if !last_was_under {
+            safe.push('_');
+            last_was_under = true;
+        }
+    }
+    safe.trim_matches('_').to_string()
+}
+
 pub fn convert_csv(
     source_path: impl AsRef<Path>,
     ddi_path: impl AsRef<Path>,
@@ -39,7 +54,12 @@ pub fn convert_csv(
         .map_err(|error| PipelineError::Failed(error.to_string()))?;
     let block = metadata
         .blocks
-        .first()
+        .iter()
+        .find(|b| {
+            let output_stem = output_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            sanitize_name(&b.name) == sanitize_name(output_stem)
+        })
+        .or_else(|| metadata.blocks.first())
         .ok_or_else(|| PipelineError::Failed("DDI has no blocks".into()))?;
     let partial = partial_path(output_path);
     if let Some(parent) = partial.parent() {
@@ -119,5 +139,13 @@ mod tests {
         assert!(actual.contains("A,café,0,100"));
         assert!(!PathBuf::from(format!("{}.partial", output.display())).exists());
         fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn test_sanitize_name() {
+        assert_eq!(sanitize_name("hh_per_fv_2017-18"), "hh_per_fv_2017_18");
+        assert_eq!(sanitize_name("Some (Name) - 1.2"), "some_name_1_2");
+        assert_eq!(sanitize_name("___test___"), "test");
+        assert_eq!(sanitize_name("abc"), "abc");
     }
 }

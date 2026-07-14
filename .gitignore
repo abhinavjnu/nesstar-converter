@@ -27,3 +27,4 @@ target/
 output_rust.csv
 output_python/
 output_rust_all/
+tools/downloads/
