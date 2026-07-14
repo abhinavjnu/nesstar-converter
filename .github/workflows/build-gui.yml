@@ -1,0 +1,105 @@
+name: Build Desktop Apps
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui,build]"
+
+      - name: Build macOS app
+        run: pyinstaller --clean --noconfirm gui/nesstar_converter.spec
+
+      - name: Create DMG / Zip
+        run: |
+          cd dist
+          zip -9 -r "NesstarConverter-macOS.zip" "Nesstar Converter.app"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NesstarConverter-macOS
+          path: dist/NesstarConverter-macOS.zip
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 libgl1 libxcb-cursor0 libxkbcommon0 \
+            libdbus-1-3 libfontconfig1 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xfixes0
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[gui,build]"
+
+      - name: Build Linux executable
+        run: pyinstaller --clean --noconfirm gui/nesstar_converter.spec
+
+      - name: Package Linux executable
+        run: |
+          cd dist
+          tar cf "NesstarConverter-Linux-x86_64.tar" NesstarConverter
+          gzip -9 "NesstarConverter-Linux-x86_64.tar"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NesstarConverter-Linux
+          path: dist/NesstarConverter-Linux-x86_64.tar.gz
+
+  release:
+    needs: [build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NesstarConverter-macOS
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NesstarConverter-Linux
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            NesstarConverter-macOS.zip
+            NesstarConverter-Linux-x86_64.tar.gz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

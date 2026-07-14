@@ -1,0 +1,21 @@
+[workspace]
+members = [
+    "crates/nesstar-core",
+    "crates/nesstar-cli",
+    "crates/nesstar-gui",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = "symbols"

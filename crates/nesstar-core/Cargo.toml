@@ -1,0 +1,16 @@
+[package]
+name = "nesstar-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+csv = { version = "1.4", default-features = false }
+memmap2 = "0.9"
+quick-xml = "0.37"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[lints]
+workspace = true

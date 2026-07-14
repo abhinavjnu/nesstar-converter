@@ -1,0 +1,52 @@
+{
+  "files": {
+    "expected/metadata-scan.json": "4a5283fa8941bbaec0a296689365adc55547c6808ec0c7e61f6c6028a549eac0",
+    "expected/metadata-scan.tsv": "ed4e189b5a55c1efa3d6a6a758db7d2f68e6f389c3cc41257eb64d8837434f71",
+    "expected/resource-index.json": "b211f200c02d34606185c4287c26221f09642a396a3f5b5dd4b5d3f19d28ce06",
+    "expected/resource-index.tsv": "b0715a64c471094b4f723d7cd60b338a94c8411ce39a3c9ce7f51f781594f705",
+    "malformed/bad-magic.Nesstar": "fd330bcfdd18901f549e5796bc142092e40bed3a4bb6ac4c110cd899a00c1918",
+    "malformed/truncated-metadata.Nesstar": "3d31e8c0c05ffcca76ab9bdb0a884c71c2709c13ec9eaec967d84b16e7bad568",
+    "malformed/truncated-resource.Nesstar": "784e7b3471490c0dc37134f475e8a730e0148b95516b6e4d9fbd2e1a634abb67",
+    "synthetic/metadata-scan.Nesstar": "3a8ed99779dc33b30612b9c7d312f3e528d5a7ddb0490456baebd7d9ee3821e4",
+    "synthetic/metadata-scan.ddi.xml": "6499bc0208c00761527767ad2ded647addafd6be80cc165a82c7768dc4adbe68",
+    "synthetic/resource-index.Nesstar": "a658e0d467eb3acd11fa865410e55033cf90553eaac3d72fd594acc506f66524",
+    "synthetic/resource-index.ddi.xml": "c046797001fc42d0d034775d91829d45df884dd50f325f8e6175a2987565d5da"
+  },
+  "fixtures": {
+    "metadata-scan": {
+      "columns": 3,
+      "encodings": [
+        "fixed_ascii",
+        "offset_le",
+        "double_le"
+      ],
+      "method": "metadata_scan",
+      "rows": 4
+    },
+    "resource-index": {
+      "columns": 10,
+      "encodings": [
+        "fixed_ascii",
+        "nul_utf8",
+        "nibble",
+        "uint8",
+        "uint16",
+        "uint24",
+        "uint32",
+        "uint40",
+        "compact_double",
+        "raw_byte_numeric"
+      ],
+      "method": "resource_index",
+      "rows": 5
+    }
+  },
+  "license": "CC0-1.0",
+  "malformed": {
+    "bad-magic.Nesstar": "Invalid first eight bytes.",
+    "truncated-metadata.Nesstar": "Metadata slot ends one byte early.",
+    "truncated-resource.Nesstar": "Resource index is truncated."
+  },
+  "source": "Synthetic data created for converter testing; no survey records are included.",
+  "version": 1
+}

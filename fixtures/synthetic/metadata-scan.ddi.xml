@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<codeBook xmlns="http://www.icpsr.umich.edu/DDI">
+  <fileDscr ID="F1" URI="Name=metadata-scan"><dimensns><caseQnty>4</caseQnty></dimensns></fileDscr>
+  <var name="ASCII" files="F1"><location width="4"/><varFormat type="character" dcml="0"/><labl>Fixed ASCII</labl></var>
+  <var name="OFFSET" files="F1"><location width="3"/><varFormat type="numeric" dcml="0"/><valrng><range min="-2" max="300"/></valrng><labl>Offset integer</labl></var>
+  <var name="FLOAT" files="F1"><location width="8"/><varFormat type="numeric" dcml="3"/><labl>Little-endian double</labl></var>
+</codeBook>

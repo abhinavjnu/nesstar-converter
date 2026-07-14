@@ -1,0 +1,12 @@
+[package]
+name = "nesstar-gui-spike-glow"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+# Deliberately explicit: no eframe defaults or persistence/network features.
+eframe = { version = "=0.33.0", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
+egui = { version = "=0.33.0", default-features = false, features = ["accesskit", "default_fonts"] }
+# Native macOS dialog; the portal backend avoids a GTK dependency on Linux.
+rfd = { version = "=0.15.4", default-features = false, features = ["xdg-portal"] }

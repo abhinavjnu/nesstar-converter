@@ -13,3 +13,17 @@ venv/
 *.dta
 *.xlsx
 output/
+
+# Rust build target
+target/
+
+# OS-specific files
+.DS_Store
+
+# Google Antigravity/Agentic subagents logs and configs
+.agents/
+
+# Generated outputs
+output_rust.csv
+output_python/
+output_rust_all/

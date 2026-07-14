@@ -1,0 +1,22 @@
+[
+  {
+    "ASCII": "01",
+    "OFFSET": "-2",
+    "FLOAT": "-1"
+  },
+  {
+    "ASCII": "ABC",
+    "OFFSET": "5",
+    "FLOAT": "0"
+  },
+  {
+    "ASCII": "",
+    "OFFSET": "",
+    "FLOAT": "3.141593"
+  },
+  {
+    "ASCII": "Z9",
+    "OFFSET": "258",
+    "FLOAT": ""
+  }
+]

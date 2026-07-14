@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<codeBook>
+  <fileDscr ID="F2" URI="Name=resource-index"><dimensns><caseQnty>5</caseQnty></dimensns></fileDscr>
+  <var name="ASCII" files="F2"><location width="4"/><varFormat type="character" dcml="0"/><labl>ASCII</labl></var>
+  <var name="UTF8" files="F2"><location width="8"/><varFormat type="character" dcml="0"/><labl>UTF8</labl></var>
+  <var name="NIBBLE" files="F2"><location width="1"/><varFormat type="numeric" dcml="0"/><valrng><range min="-1" max="14"/></valrng><labl>NIBBLE</labl></var>
+  <var name="U8" files="F2"><location width="3"/><varFormat type="numeric" dcml="0"/><labl>U8</labl></var>
+  <var name="U16" files="F2"><location width="5"/><varFormat type="numeric" dcml="0"/><labl>U16</labl></var>
+  <var name="U24" files="F2"><location width="7"/><varFormat type="numeric" dcml="0"/><labl>U24</labl></var>
+  <var name="U32" files="F2"><location width="10"/><varFormat type="numeric" dcml="0"/><labl>U32</labl></var>
+  <var name="U40" files="F2"><location width="12"/><varFormat type="numeric" dcml="0"/><labl>U40</labl></var>
+  <var name="CDOUBLE" files="F2"><location width="8"/><varFormat type="numeric" dcml="3"/><labl>CDOUBLE</labl></var>
+  <var name="RAWBYTE" files="F2"><location width="3"/><varFormat type="numeric" dcml="0"/><labl>RAWBYTE</labl></var>
+</codeBook>

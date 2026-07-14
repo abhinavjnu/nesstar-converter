@@ -32,9 +32,18 @@ dependencies = [
 dev = [
     "pytest>=7.0",
 ]
+gui = [
+    # Core, Gui, and Widgets are sufficient; the full PySide6 package also
+    # installs large QML/Quick/PDF add-ons that this desktop app does not use.
+    "PySide6-Essentials>=6.5,<7",
+]
+build = [
+    "pyinstaller>=6.0",
+]
 
 [project.scripts]
 nesstar-converter = "nesstar_converter:main"
+nesstar-converter-gui = "gui.app:main"
 
 [project.urls]
 Homepage = "https://github.com/abhinavjnu/nesstar-converter"
@@ -44,6 +53,7 @@ Documentation = "https://github.com/abhinavjnu/nesstar-converter/tree/main/docs"
 
 [tool.setuptools]
 py-modules = ["nesstar_converter"]
+packages = ["gui"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
