@@ -6,6 +6,7 @@ use std::{
 
 use eframe::egui;
 use nesstar_core::pipeline::OutputFormat;
+use webbrowser;
 
 const ALL_FORMATS: &[OutputFormat] = &[
     OutputFormat::Csv,
@@ -142,15 +143,57 @@ impl eframe::App for ConverterApp {
             context.request_repaint_after(Duration::from_millis(200));
         }
 
+        // ── Brand & Support Side Panel ───────────────────────────────────
+        egui::SidePanel::left("brand_panel")
+            .resizable(false)
+            .default_width(220.0)
+            .show(context, |ui| {
+                ui.add_space(20.0);
+                ui.vertical_centered(|ui| {
+                    // Premium App Branding
+                    ui.heading("Nesstar Converter");
+                    ui.label("v1.0.5");
+
+                    ui.add_space(20.0);
+                    ui.separator();
+                    ui.add_space(20.0);
+
+                    // Builder / Author Credits
+                    ui.small("DEVELOPED BY");
+                    ui.add_space(4.0);
+                    ui.strong("Abhinav");
+                    ui.hyperlink_to("@abhinavjnu", "https://github.com/abhinavjnu");
+
+                    ui.add_space(30.0);
+                    ui.separator();
+                    ui.add_space(25.0);
+
+                    // Contribution & Donation Actions
+                    ui.small("SUPPORT THE PROJECT");
+                    ui.add_space(12.0);
+                    
+                    if ui.add_sized([160.0, 30.0], egui::Button::new("❤️ Sponsor on GitHub")).clicked() {
+                        let _ = webbrowser::open("https://github.com/sponsors/abhinavjnu");
+                    }
+                    
+                    ui.add_space(10.0);
+                    
+                    if ui.add_sized([160.0, 30.0], egui::Button::new("☕ Buy Me a Coffee")).clicked() {
+                        let _ = webbrowser::open("https://buymeacoffee.com/abhinavjnu");
+                    }
+                });
+            });
+
+        // ── Main Conversion Work Space ────────────────────────────────────
         egui::CentralPanel::default().show(context, |ui| {
-            ui.heading("Nesstar Converter");
-            ui.label("Convert a Nesstar survey and its DDI metadata to your chosen format.");
-            ui.add_space(12.0);
+            ui.heading("Conversion Workspace");
+            ui.label("Select files and configure output settings to begin conversion.");
+            ui.add_space(16.0);
 
             // ── Input files ──────────────────────────────────────────────
             file_row(ui, "Nesstar file", &mut self.input, "Choose Nesstar file", false);
             file_row(ui, "DDI XML     ", &mut self.ddi, "Choose DDI XML", false);
-            ui.add_space(8.0);
+            ui.add_space(12.0);
 
             // ── Format selector ──────────────────────────────────────────
             ui.horizontal(|ui| {
@@ -167,7 +210,7 @@ impl eframe::App for ConverterApp {
                     self.sync_output_extension();
                 }
             });
-            ui.add_space(4.0);
+            ui.add_space(8.0);
 
             // ── Output path ──────────────────────────────────────────────
             ui.horizontal(|ui| {
@@ -188,21 +231,26 @@ impl eframe::App for ConverterApp {
                 }
             });
 
-            ui.add_space(12.0);
+            ui.add_space(20.0);
+            ui.separator();
+            ui.add_space(16.0);
 
             // ── Convert button ───────────────────────────────────────────
             let busy = self.worker.is_some();
-            if ui
-                .add_enabled(!busy, egui::Button::new(format!("Convert to {}", self.format.label())))
-                .clicked()
-            {
-                self.start();
-            }
-            if busy {
-                ui.spinner();
-            }
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(!busy, egui::Button::new(format!("Convert to {}", self.format.label())))
+                    .clicked()
+                {
+                    self.start();
+                }
+                if busy {
+                    ui.spinner();
+                }
+            });
+            
             if !self.status.is_empty() {
-                ui.add_space(8.0);
+                ui.add_space(12.0);
                 ui.label(&self.status);
             }
         });
