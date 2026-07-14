@@ -5,12 +5,18 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+parquet = ["dep:arrow-array", "dep:arrow-schema", "dep:parquet"]
+
 [dependencies]
 csv = { version = "1.4", default-features = false }
 memmap2 = "0.9"
 quick-xml = "0.37"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
+arrow-array = { version = "54", optional = true }
+arrow-schema = { version = "54", optional = true }
+parquet = { version = "54", default-features = false, features = ["arrow"], optional = true }
 
 [lints]
 workspace = true
