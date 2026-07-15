@@ -1890,14 +1890,14 @@ dependencies = [
 
 [[package]]
 name = "nesstar-cli"
-version = "0.1.0"
+version = "1.0.7"
 dependencies = [
  "nesstar-core",
 ]
 
 [[package]]
 name = "nesstar-core"
-version = "0.1.0"
+version = "1.0.7"
 dependencies = [
  "arrow-array",
  "arrow-schema",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "nesstar-gui"
-version = "0.1.0"
+version = "1.0.7"
 dependencies = [
  "eframe",
  "nesstar-core",

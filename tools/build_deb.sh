@@ -4,7 +4,7 @@ set -euo pipefail
 # Script to build a Debian (.deb) package for Nesstar Converter
 # Can be run locally to package the compiled binary
 
-VERSION="1.0.6"
+VERSION="1.0.7"
 ARCH="amd64"
 PKG_DIR="/tmp/nesstar-deb"
 OUTPUT_DIR="/home/abhinav/Downloads"
