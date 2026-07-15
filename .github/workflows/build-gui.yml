@@ -113,8 +113,32 @@ jobs:
             NesstarConverter-Linux-x86_64-Rust.tar.gz
             nesstar-converter_*.deb
 
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+
+      - name: Build Windows executable
+        run: cargo build --release --bin nesstar-gui
+
+      - name: Package Windows executable
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist
+          Copy-Item target/release/nesstar-gui.exe dist/NesstarConverter.exe
+          Compress-Archive -Path dist/NesstarConverter.exe -DestinationPath NesstarConverter-Windows-x86_64-Rust.zip -Force
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NesstarConverter-Windows
+          path: NesstarConverter-Windows-x86_64-Rust.zip
+
   release:
-    needs: [build-macos, build-linux]
+    needs: [build-macos, build-linux, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -128,6 +152,11 @@ jobs:
         with:
           name: NesstarConverter-Linux
 
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: NesstarConverter-Windows
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -135,7 +164,9 @@ jobs:
             NesstarConverter-macOS-Rust.zip
             NesstarConverter-Linux-x86_64-Rust.tar.gz
             nesstar-converter_*.deb
+            NesstarConverter-Windows-x86_64-Rust.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
