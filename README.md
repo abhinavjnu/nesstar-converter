@@ -1,11 +1,28 @@
 # Nesstar Converter
 
 [![PyPI](https://img.shields.io/pypi/v/nesstar-converter)](https://pypi.org/project/nesstar-converter/)
+[![GitHub Release](https://img.shields.io/github/v/release/abhinavjnu/nesstar-converter)](https://github.com/abhinavjnu/nesstar-converter/releases/latest)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml)
 
-Researchers, statistical agencies, and national archives spent years building survey datasets that document the economic and social life of entire populations — often with public money. Those datasets ended up locked in `.Nesstar`, a proprietary binary format whose only reader was a discontinued Windows desktop application. The company folded. The servers went offline. The licenses expired. But the data didn't stop mattering. **`nesstar-converter`** is a pure-Python binary parser that reads the format directly — no `.exe`, no Windows, no institutional subscription — and writes Parquet, CSV, Stata, Excel, and more. Your data. Open formats. Any platform.
+## Desktop App (GUI)
+
+> No terminal needed — download, install, convert.
+
+| Platform | Download | Install |
+|---|---|---|
+| **Windows** | [NesstarConverter-Windows.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Unzip and double-click `NesstarConverter.exe` |
+| **Linux** | [nesstar-converter.deb](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Double-click the `.deb` file, or `sudo dpkg -i nesstar-converter_*.deb` |
+| **macOS** | [NesstarConverter-macOS.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Unzip and drag to Applications |
+
+Built in Rust with [eframe](https://github.com/emilk/egui). ~16 MB, no runtime dependencies.
+
+---
+
+## Python Library
+
+Researchers, statistical agencies, and national archives spent years building survey datasets that document the economic and social life of entire populations — often with public money. Those datasets ended up locked in `.Nesstar`, a proprietary binary format whose only reader was a discontinued Windows desktop application. The company folded. The servers went offline. The licenses expired. But the data didn't stop mattering. **`nesstar-converter`** started as a pure-Python binary parser and now ships a native Rust desktop app alongside the original Python library. The parser reads the format directly — no `.exe`, no Windows, no institutional subscription — and writes Parquet, CSV, Stata, Excel, and more. Your data. Open formats. Any platform.
 
 ---
 

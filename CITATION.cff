@@ -2,14 +2,15 @@ cff-version: 1.2.0
 message: "If you use nesstar-converter in research, please cite it using this metadata."
 title: "nesstar-converter"
 type: software
-version: 1.0.2
-date-released: 2026-04-13
+version: 1.0.7
+date-released: 2026-07-15
 license: MIT
 repository-code: "https://github.com/abhinavjnu/nesstar-converter"
 url: "https://github.com/abhinavjnu/nesstar-converter"
 abstract: >-
-  Pure-Python converter for legacy Nesstar survey binaries to open formats such
-  as Parquet, CSV, Excel, Stata, JSON, and fixed-width text.
+  Python and Rust converter for legacy Nesstar survey binaries to open formats
+  such as Parquet, CSV, Excel, Stata, JSON, and fixed-width text. Ships as both
+  a Python library (pip install) and a native cross-platform desktop GUI.
 keywords:
   - Nesstar
   - survey data
@@ -17,12 +18,14 @@ keywords:
   - DDI
   - Parquet
 authors:
-  - family-names: "abhinavjnu"
+  - given-names: "Abhinav"
+    family-names: "Kumar"
 preferred-citation:
   type: software
   title: "nesstar-converter"
-  version: 1.0.2
-  date-released: 2026-04-13
+  version: 1.0.7
+  date-released: 2026-07-15
   url: "https://github.com/abhinavjnu/nesstar-converter"
   authors:
-    - family-names: "abhinavjnu"
+    - given-names: "Abhinav"
+      family-names: "Kumar"

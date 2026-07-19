@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.0.7] - 2026-07-15
+
+### Added
+- Windows build support — CI now compiles and releases `NesstarConverter.exe` for Windows
+- Native Debian packaging (`.deb`) for one-click Linux installation
+- Local `.deb` build script (`tools/build_deb.sh`)
+
+### Changed
+- Release workflow now produces artifacts for all three platforms (macOS, Linux, Windows)
+
+## [1.0.6] - 2026-07-14
+
+### Changed
+- Redesigned GUI with brand sidebar, builder credits (Abhinav), and sponsor links
+
+### Fixed
+- Use default features for `rfd` crate to prevent Linux build panic
+
+## [1.0.5] - 2026-07-14
+
+### Added
+- Complete Rust rewrite of the Nesstar converter with `nesstar-core` library
+- Native eframe/egui desktop GUI (`nesstar-gui`) — no Python runtime required
+- Native multi-format output: CSV, tab-separated text, Parquet, and Stata DTA in pure Rust
+- MoSPI pipeline integration and public DDI registry validation
+- Test fixtures validation for Rust converter correctness
+
+### Changed
+- CI build workflow updated to compile optimized Rust desktop apps instead of Python/PyInstaller bundles
+- Binary size reduced from ~250 MB (PySide6) to ~16 MB (Rust/eframe)
+
 ## [1.0.4] - 2026-06-16
 
 ### Fixed

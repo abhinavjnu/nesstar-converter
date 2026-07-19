@@ -1,9 +1,9 @@
 # Rust Desktop Migration Implementation Plan
 
-**Status:** Approved architecture; implementation not started  
+**Status:** Complete — migration shipped in v1.0.5; Windows and .deb packaging added in v1.0.7  
 **Plan version:** 1.0  
-**Last updated:** 2026-07-13  
-**Source of truth:** This file supersedes the implementation-oriented next steps in `handoff.md`.
+**Last updated:** 2026-07-19  
+**Source of truth:** This file is retained as a historical architecture record. See `handoff.md` for the current state of the desktop app.
 
 ---
 
@@ -36,7 +36,7 @@ Do not include these in the initial Rust migration:
 - Automatic updates.
 - A web application.
 - A plugin framework.
-- Windows release packaging. Keep the code portable to Windows, but macOS and Linux are the release targets.
+- ~~Windows release packaging.~~ _Added in v1.0.7 — CI now builds and releases Windows executables alongside macOS and Linux._
 - Replacing or deleting the Python implementation before parity is proven.
 - Redesigning the Nesstar format based on assumptions. Port only behavior supported by code and fixtures.
 
@@ -972,12 +972,12 @@ Done when GUI state tests pass and manual smoke tests work on macOS and Linux.
 - Icons and packaging metadata.
 - `docs/releasing-rust.md`
 
-Artifacts:
+Artifacts (as shipped):
 
-- macOS ARM64 `.app` and DMG.
-- macOS x86-64 `.app` and DMG.
-- Linux x86-64 AppImage.
-- Optional Linux `.deb`.
+- macOS `.app` bundle (zip).
+- Linux x86-64 `.tar.gz`.
+- Linux x86-64 `.deb` package.
+- Windows x86-64 `.exe` (zip).
 
 CI must:
 

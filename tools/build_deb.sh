@@ -31,10 +31,10 @@ Version: ${VERSION}
 Section: utils
 Priority: optional
 Architecture: ${ARCH}
-Maintainer: Abhinav <abhinavjnu@github.com>
-Description: Convert Nesstar XML metadata to CSV, TXT, Parquet, and Stata DTA formats.
- A Rust-based tool providing both CLI and GUI interfaces for converting
- Nesstar XML metadata into various analytics formats.
+Maintainer: Abhinav Kumar <abhinavjnu@github.com>
+Description: Convert Nesstar binary survey files to CSV, TXT, Parquet, and Stata DTA formats.
+ A native desktop app for converting proprietary Nesstar survey files
+ into open analytics formats. No terminal or Python required.
 EOT
 
 # Create Desktop entry
@@ -42,7 +42,7 @@ cat <<EOT > "$PKG_DIR/usr/share/applications/nesstar-converter.desktop"
 [Desktop Entry]
 Type=Application
 Name=Nesstar Converter
-Comment=Convert Nesstar XML metadata to CSV, TXT, Parquet, and Stata DTA formats
+Comment=Convert Nesstar binary survey files to open formats
 Exec=NesstarConverter
 Icon=system-run
 Terminal=false

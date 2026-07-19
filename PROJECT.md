@@ -1,26 +1,37 @@
-# Project: Nesstar Rust Converter Verification
+# Project: Nesstar Converter
 
 ## Architecture
 - `crates/nesstar-core`: Core Rust parser, DDI reader, byte decoding, and formatting library.
 - `crates/nesstar-cli`: CLI executable wrapping the core conversion pipeline.
-- `nesstar_converter.py`: Reference Python parser and converter serving as correctness oracle.
+- `crates/nesstar-gui`: Native desktop GUI built with eframe/egui.
+- `nesstar_converter.py`: Reference Python parser and converter.
+- `gui/`: Legacy PySide6 desktop app (superseded by `nesstar-gui`).
 
 ## Milestones
-| # | Name | Scope | Dependencies | Status |
-|---|------|-------|-------------|--------|
-| 1 | WP-B0 | Explore codebase, compile workspace, and run existing unit/pytest suites | None | DONE (Rust check ok, 14 unit tests pass, python pytest ok) |
-| 2 | WP-E1 | Run differential testing audit on PLFS 2017-18 dataset, build verification script | WP-B0 | DONE (Rust correct, Python bug found in 3 columns) |
-| 3 | WP-E2 | Code audit on `nesstar-core` and `nesstar-cli` for edge cases and correctness | WP-B0 | DONE (Audit clean, reviewer found 2 issues, challenger verified 4 blocks) |
-| 4 | WP-E3 | Fix any bugs, discrepancies, or warnings discovered in WP-E1/WP-E2 | WP-E1, WP-E2 | DONE (Float rendering and unchecked addition bugs fixed and tested) |
-| 5 | WP-E4 | Final qualification (run all tests, parity validation, benchmarks) | WP-E3 | DONE (All tests pass, binary size 583 KB, parity 100% verified correct) |
+| # | Name | Scope | Status |
+|---|------|-------|--------|
+| 1 | WP-B0 | Explore codebase, compile workspace, run test suites | DONE |
+| 2 | WP-E1 | Differential testing audit on PLFS 2017-18 | DONE |
+| 3 | WP-E2 | Code audit on nesstar-core and nesstar-cli | DONE |
+| 4 | WP-E3 | Fix bugs discovered in WP-E1/WP-E2 | DONE |
+| 5 | WP-E4 | Final qualification — all tests pass, 100% parity | DONE |
+| 6 | v1.0.5 | Rust rewrite, native GUI, multi-format output | DONE |
+| 7 | v1.0.6 | GUI redesign, Linux build fix | DONE |
+| 8 | v1.0.7 | Windows support, .deb packaging, cross-platform CI | DONE |
 
 ## Interface Contracts
-- Rust CLI signature: `nesstar-cli convert <input.Nesstar> <ddi.xml> <output.csv>`
-- Python CLI signature: `python nesstar_converter.py convert <input.Nesstar> <ddi.xml> <output.csv> --formats csv`
+- Rust CLI: `nesstar-cli convert <input.Nesstar> <ddi.xml> <output.csv|.parquet|.dta|.txt>`
+- Rust GUI: `NesstarConverter` (standalone desktop app)
+- Python CLI: `nesstar-converter convert <input.Nesstar> <ddi.xml> ./output --formats csv,parquet,stata`
 
 ## Code Layout
-- `crates/nesstar-core/` - Core library
-- `crates/nesstar-cli/` - CLI wrapper
-- `nesstar_converter.py` - Reference Python converter
-- `tests/` - Python test suite for validation
-- `fixtures/` - Test fixtures
+- `crates/nesstar-core/` — Core Rust library
+- `crates/nesstar-cli/` — Rust CLI wrapper
+- `crates/nesstar-gui/` — Rust desktop GUI (eframe/egui)
+- `gui/` — Legacy PySide6 GUI (superseded)
+- `nesstar_converter.py` — Reference Python converter
+- `tests/` — Python test suite
+- `fixtures/` — Test fixtures
+- `tools/` — Build scripts (build_deb.sh)
+- `docs/` — Technical docs, ADRs, spikes, migration plan
+- `.github/workflows/` — CI/CD (Python tests, Rust builds, PyPI publish)

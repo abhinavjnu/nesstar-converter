@@ -1,17 +1,21 @@
-# ADR 0004: Defer Stata output
+# ADR 0004: Stata output
+
+## Status
+
+Accepted (supersedes original deferral)
 
 ## Decision
 
-Stata output is deferred from the first production Rust release. The worker
-must return a clear unsupported-format error when it is requested.
+Stata DTA v118 output is implemented in the Rust converter via a custom writer
+in `crates/nesstar-core/src/formats/dta.rs`. The writer produces files readable
+by Stata 14+ and pandas.
 
-## Evidence
+## Context
 
-WP-S2 found no Rust DTA writer that completed independent pandas and R/haven
-round trips with leading-zero strings, Unicode, labels, and collision-safe
-names.
+WP-S2 initially deferred Stata because no existing Rust DTA crate passed
+round-trip validation. A custom writer was subsequently implemented that handles
+leading-zero strings, Unicode labels, and collision-safe variable names.
 
 ## Consequences
 
-WP-W4 does not begin until a replacement ADR names a validated writer. The
-pipeline may proceed without this deferred format.
+Stata (.dta) is available as an output format in both the CLI and GUI.
