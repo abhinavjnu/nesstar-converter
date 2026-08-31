@@ -15,7 +15,15 @@
 
 ## ⚡ Quick Start
 
-### 1. 🖥️ Desktop App (GUI) — *No Terminal Required*
+### 1. 🌐 Web App (WebAssembly) — *Zero Installation, 100% Private*
+
+> **👉 [Launch Web Converter (abhinavjnu.github.io/nesstar-converter)](https://abhinavjnu.github.io/nesstar-converter/)**
+> 
+> *Convert `.Nesstar` files directly in your web browser using client-side WebAssembly. Zero files leave your machine.*
+
+---
+
+### 2. 🖥️ Desktop App (GUI) — *No Terminal Required*
 
 Download the standalone native application (~16 MB, zero dependencies):
 
@@ -27,7 +35,7 @@ Download the standalone native application (~16 MB, zero dependencies):
 
 ---
 
-### 2. ⚡ High-Speed Rust CLI — *For Data Pipelines*
+### 3. ⚡ High-Speed Rust CLI — *For Data Pipelines*
 
 ```bash
 # Convert to Parquet, CSV, Stata (.dta), SPSS (.sav), or TSV (.txt)
@@ -38,7 +46,7 @@ nesstar-cli convert survey.Nesstar ddi.xml ./output/dataset.parquet
 
 ---
 
-### 3. 🐍 Python Library & CLI — *For Pandas, Polars & Jupyter*
+### 4. 🐍 Python Library & CLI — *For Pandas, Polars & Jupyter*
 
 ```bash
 pip install -U nesstar-converter

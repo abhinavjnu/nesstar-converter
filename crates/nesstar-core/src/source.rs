@@ -1,11 +1,12 @@
 //! Reviewed read-only source access.
 
-use std::{
-    fs::File,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::File;
+#[cfg(not(target_arch = "wasm32"))]
 use memmap2::{Mmap, MmapOptions};
+
 use thiserror::Error;
 
 const NESSTAR_MAGIC: &[u8; 8] = b"NESSTART";
@@ -24,19 +25,23 @@ pub enum SourceError {
     },
 }
 
-/// A read-only mapping held for the conversion job's lifetime.
-///
-/// `memmap2` requires `unsafe` because the caller must ensure that the mapped
-/// file is not truncated while the mapping is live. Nesstar inputs are opened
-/// read-only and this wrapper keeps the file handle private, so no code in the
-/// converter can mutate the mapped file through this API.
+enum SourceBacking {
+    #[cfg(not(target_arch = "wasm32"))]
+    Mmap {
+        _file: File,
+        mmap: Mmap,
+    },
+    Bytes(Vec<u8>),
+}
+
+/// A read-only source held for the conversion job's lifetime.
 pub struct ReadOnlySource {
     path: PathBuf,
-    _file: File,
-    mmap: Mmap,
+    backing: SourceBacking,
 }
 
 impl ReadOnlySource {
+    #[cfg(not(target_arch = "wasm32"))]
     #[allow(unsafe_code)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, SourceError> {
         let path = path.as_ref().to_path_buf();
@@ -50,8 +55,6 @@ impl ReadOnlySource {
             path: path.clone(),
             reason: format!("cannot open: {error}"),
         })?;
-        // SAFETY: `file` is retained in this struct for at least as long as
-        // `mmap`; this API exposes no mutable mapping or file handle.
         let mmap =
             unsafe { MmapOptions::new().map(&file) }.map_err(|error| SourceError::Invalid {
                 path: path.clone(),
@@ -59,8 +62,16 @@ impl ReadOnlySource {
             })?;
         let source = Self {
             path,
-            _file: file,
-            mmap,
+            backing: SourceBacking::Mmap { _file: file, mmap },
+        };
+        source.validate_magic()?;
+        Ok(source)
+    }
+
+    pub fn from_bytes(bytes: Vec<u8>) -> Result<Self, SourceError> {
+        let source = Self {
+            path: PathBuf::from("in-memory.Nesstar"),
+            backing: SourceBacking::Bytes(bytes),
         };
         source.validate_magic()?;
         Ok(source)
@@ -69,14 +80,21 @@ impl ReadOnlySource {
     pub fn path(&self) -> &Path {
         &self.path
     }
+
     pub fn len(&self) -> usize {
-        self.mmap.len()
+        self.bytes().len()
     }
+
     pub fn is_empty(&self) -> bool {
-        self.mmap.is_empty()
+        self.bytes().is_empty()
     }
+
     pub fn bytes(&self) -> &[u8] {
-        &self.mmap
+        match &self.backing {
+            #[cfg(not(target_arch = "wasm32"))]
+            SourceBacking::Mmap { mmap, .. } => mmap,
+            SourceBacking::Bytes(b) => b,
+        }
     }
 
     pub fn slice(
@@ -94,7 +112,7 @@ impl ReadOnlySource {
                 end: usize::MAX,
                 length: self.len(),
             })?;
-        self.mmap
+        self.bytes()
             .get(start..end)
             .ok_or_else(|| SourceError::OutOfBounds {
                 path: self.path.clone(),

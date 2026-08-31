@@ -3,6 +3,7 @@ members = [
     "crates/nesstar-core",
     "crates/nesstar-cli",
     "crates/nesstar-gui",
+    "crates/nesstar-wasm",
 ]
 resolver = "2"
 
