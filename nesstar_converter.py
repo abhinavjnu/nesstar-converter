@@ -674,9 +674,7 @@ def match_ddi_to_slots(ddi_vars: list, slots: list) -> list:
                 f"and name matching found 0 overlaps"
             )
     else:
-        raise ValueError(
-            f"DDI has {len(ddi_vars)} vars but found {len(slots)} metadata slots"
-        )
+        raise ValueError(f"DDI has {len(ddi_vars)} vars but found {len(slots)} metadata slots")
 
     merged.sort(key=lambda x: x["var_num"])
     return merged
@@ -740,9 +738,7 @@ def extract_block(
         col_data = data[col_offset : col_offset + total_bytes]
 
         if len(col_data) < total_bytes:
-            raise ValueError(
-                f"Truncated data for {name}: got {len(col_data)}, need {total_bytes}"
-            )
+            raise ValueError(f"Truncated data for {name}: got {len(col_data)}, need {total_bytes}")
 
         if enc == "char":
             values = _extract_char_column(col_data, bw, nrecs)
@@ -800,9 +796,7 @@ def _extract_double_column(col_data: bytes, nrecs: int, dcml: int) -> list:
     return values
 
 
-def _extract_offset_column(
-    col_data: bytes, bw: int, nrecs: int, offset_min: int
-) -> list:
+def _extract_offset_column(col_data: bytes, bw: int, nrecs: int, offset_min: int) -> list:
     """Extract offset-encoded integer column."""
     miss_marker = b"\xff" * bw
     values = []
@@ -901,9 +895,7 @@ def _looks_like_raw_byte_numeric(col_data: bytes, nrecs: int, width: int) -> boo
     return non_printable / len(sample) > 0.25
 
 
-def extract_block_resource_indexed(
-    data: bytes, block_info: dict, layout: dict
-) -> pd.DataFrame:
+def extract_block_resource_indexed(data: bytes, block_info: dict, layout: dict) -> pd.DataFrame:
     """Extract one block using exact payload spans from the resource index."""
     nrecs = block_info["nrecs"]
     result = {}
@@ -919,9 +911,7 @@ def extract_block_resource_indexed(
         size = entry["size"]
         col_data = data[start : start + size]
         if len(col_data) < size:
-            raise ValueError(
-                f"Truncated payload for {name}: got {len(col_data)}, need {size}"
-            )
+            raise ValueError(f"Truncated payload for {name}: got {len(col_data)}, need {size}")
 
         format_code = entry["value_format_code"]
         compact_size = _compact_payload_size(format_code, nrecs)
@@ -970,9 +960,7 @@ def extract_block_resource_indexed(
                 )
             if width <= 0:
                 raise ValueError(f"Invalid text width for {name!r}: {width}")
-            if is_declared_numeric and _looks_like_raw_byte_numeric(
-                col_data, nrecs, width
-            ):
+            if is_declared_numeric and _looks_like_raw_byte_numeric(col_data, nrecs, width):
                 values = _decode_compact_numeric_column(
                     col_data,
                     3,
@@ -1053,9 +1041,7 @@ def convert_nesstar(
     # Validate formats
     for fmt in formats:
         if fmt not in ALL_FORMATS:
-            raise ValueError(
-                f"Unknown format '{fmt}'. Choose from: {', '.join(ALL_FORMATS)}"
-            )
+            raise ValueError(f"Unknown format '{fmt}'. Choose from: {', '.join(ALL_FORMATS)}")
 
     if verbose:
         _print_header("NESSTAR CONVERTER")
@@ -1109,9 +1095,7 @@ def convert_nesstar(
 
             if verbose:
                 if resource_layouts:
-                    print(
-                        f"  Resource index: {len(resource_layouts)}/{len(blocks)} blocks"
-                    )
+                    print(f"  Resource index: {len(resource_layouts)}/{len(blocks)} blocks")
                 if meta_map:
                     print(f"  Metadata scan : {len(meta_map)}/{len(blocks)} blocks")
 
@@ -1131,17 +1115,13 @@ def convert_nesstar(
                 print("\nStep 4/4: Extracting and converting blocks...")
 
             block_items = sorted(blocks.items(), key=lambda x: x[1]["fid_num"])
-            progress = tqdm(
-                block_items, desc="Blocks", disable=not verbose or not HAS_TQDM
-            )
+            progress = tqdm(block_items, desc="Blocks", disable=not verbose or not HAS_TQDM)
 
             for fid, blk in progress:
                 block_name = _safe_name(blk["name"])
 
                 if fid not in resource_layouts and fid not in meta_map:
-                    msg = (
-                        f"Skipped {fid} ({blk['name']}): data block not found in binary"
-                    )
+                    msg = f"Skipped {fid} ({blk['name']}): data block not found in binary"
                     report["errors"].append(msg)
                     if verbose and not HAS_TQDM:
                         print(f"  ⚠ {msg}")
@@ -1156,21 +1136,15 @@ def convert_nesstar(
                     extraction_method = "metadata_scan"
                     if fid in resource_layouts:
                         try:
-                            df = extract_block_resource_indexed(
-                                data, blk, resource_layouts[fid]
-                            )
-                            merged = _merge_resource_vars_for_metadata(
-                                blk, resource_layouts[fid]
-                            )
+                            df = extract_block_resource_indexed(data, blk, resource_layouts[fid])
+                            merged = _merge_resource_vars_for_metadata(blk, resource_layouts[fid])
                             extraction_method = "resource_index"
                         except Exception:
                             if fid not in meta_map:
                                 raise
                             meta_start = meta_map[fid]
                             actual_nslots = _count_actual_slots(data, meta_start)
-                            read_count = (
-                                nvars if actual_nslots >= nvars else actual_nslots
-                            )
+                            read_count = nvars if actual_nslots >= nvars else actual_nslots
                             slots = read_metadata_slots(data, meta_start, read_count)
                             merged = match_ddi_to_slots(blk["ddi_vars"], slots)
                             df = extract_block(data, blk, merged, meta_start)
@@ -1284,10 +1258,7 @@ def _write_formats(
                                 dict(
                                     zip(
                                         cols,
-                                        (
-                                            str(v) if not isinstance(v, str) else v
-                                            for v in vals
-                                        ),
+                                        (str(v) if not isinstance(v, str) else v for v in vals),
                                     ),
                                 ),
                                 default=str,
@@ -1302,9 +1273,7 @@ def _write_formats(
             files[fmt] = {"path": out_path, "size_mb": round(size_mb, 2)}
 
             if verbose:
-                print(
-                    f"    ✓ {fmt:8s} → {os.path.basename(out_path)} ({size_mb:.1f} MB)"
-                )
+                print(f"    ✓ {fmt:8s} → {os.path.basename(out_path)} ({size_mb:.1f} MB)")
 
         except Exception as e:
             files[fmt] = {"path": out_path, "error": str(e)}
@@ -1372,9 +1341,7 @@ def _write_stata(df: pd.DataFrame, out_path: str, blk: dict, merged_vars: list):
         df_stata = df_stata.rename(columns=col_renames)
         label_map = {col_renames.get(k, k): v for k, v in label_map.items()}
 
-    df_stata.to_stata(
-        out_path, write_index=False, variable_labels=label_map, version=117
-    )
+    df_stata.to_stata(out_path, write_index=False, variable_labels=label_map, version=117)
 
 
 def _write_fwf(df: pd.DataFrame, out_path: str, blk: dict, merged_vars: list):
@@ -1448,9 +1415,7 @@ def _validate_block(df: pd.DataFrame, blk: dict, block_name: str) -> dict:
         checks["passed"] = False
 
     # 3. No all-null columns (data was actually read)
-    all_null_cols = [
-        col for col in df.columns if df[col].replace("", pd.NA).isna().all()
-    ]
+    all_null_cols = [col for col in df.columns if df[col].replace("", pd.NA).isna().all()]
     ok = len(all_null_cols) == 0
     checks["checks"].append(
         {
@@ -1461,9 +1426,7 @@ def _validate_block(df: pd.DataFrame, blk: dict, block_name: str) -> dict:
     )
 
     # 4. No all-identical columns (suspicious)
-    identical_cols = [
-        col for col in df.columns if df[col].nunique() <= 1 and len(df) > 10
-    ]
+    identical_cols = [col for col in df.columns if df[col].nunique() <= 1 and len(df) > 10]
     checks["checks"].append(
         {
             "check": "column_variance",
@@ -1488,9 +1451,7 @@ def _validate_block(df: pd.DataFrame, blk: dict, block_name: str) -> dict:
     return checks
 
 
-def validate_against_export(
-    parquet_dir: str, export_dir: str, verbose: bool = True
-) -> dict:
+def validate_against_export(parquet_dir: str, export_dir: str, verbose: bool = True) -> dict:
     """Validate converted files against Nesstar Explorer text exports.
 
     Compares each parquet file in parquet_dir against matching .txt
@@ -1537,9 +1498,7 @@ def validate_against_export(
 
         # Load both
         df_pq = pd.read_parquet(pq_path)
-        df_exp = pd.read_csv(
-            matched_exp, sep="\t", dtype=str, keep_default_na=False, header=None
-        )
+        df_exp = pd.read_csv(matched_exp, sep="\t", dtype=str, keep_default_na=False, header=None)
 
         # Normalize
         for col in df_pq.columns:
@@ -1639,9 +1598,7 @@ def _find_matching_export(parquet_stem: str, exp_files: list) -> Path | None:
     best_score = 0
 
     for exp_path in exp_files:
-        exp_clean = (
-            exp_path.stem.lower().replace("-", "").replace("_", "").replace(" ", "")
-        )
+        exp_clean = exp_path.stem.lower().replace("-", "").replace("_", "").replace(" ", "")
         # Score based on overlap
         if pq_clean in exp_clean or exp_clean in pq_clean:
             score = min(len(pq_clean), len(exp_clean))
@@ -1687,9 +1644,7 @@ def show_info(nesstar_path: str, ddi_path: str):
     print()
 
     print("  Block Details:")
-    print(
-        f"  {'ID':>4s}  {'Block Name':<55s}  {'Records':>10s}  {'Vars':>4s}  {'Types'}"
-    )
+    print(f"  {'ID':>4s}  {'Block Name':<55s}  {'Records':>10s}  {'Vars':>4s}  {'Types'}")
     print(f"  {'─' * 4}  {'─' * 55}  {'─' * 10}  {'─' * 4}  {'─' * 30}")
 
     for fid, blk in sorted(blocks.items(), key=lambda x: x[1]["fid_num"]):
@@ -1799,8 +1754,7 @@ def _auto_detect_ddi(nesstar_path: str) -> str:
         if f.name.lower() == "ddi.xml":
             return str(f)
     raise FileNotFoundError(
-        f"Could not find ddi.xml in {nes_dir}.\n"
-        f"Please specify the DDI file path explicitly."
+        f"Could not find ddi.xml in {nes_dir}.\nPlease specify the DDI file path explicitly."
     )
 
 
@@ -1921,9 +1875,7 @@ def main():
         f"Options: {', '.join(ALL_FORMATS)}",
     )
     conv_p.add_argument("--year", default="unknown", help="Year label for report")
-    conv_p.add_argument(
-        "--quiet", "-q", action="store_true", help="Suppress progress output"
-    )
+    conv_p.add_argument("--quiet", "-q", action="store_true", help="Suppress progress output")
 
     # --- validate ---
     val_p = sub.add_parser(

@@ -52,3 +52,10 @@ markers = [
     "integration: Integration tests (need real Nesstar data)",
     "slow: Slow tests (full dataset validation)",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
