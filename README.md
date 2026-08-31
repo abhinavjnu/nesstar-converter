@@ -157,6 +157,21 @@ Docs: [`docs/TECHNICAL.md`](docs/TECHNICAL.md) · [`docs/global-coverage.md`](do
 
 ---
 
+<!-- ANALYTICS:START -->
+## 📊 Analytics & Usage Stats
+
+| Metric | Count | Description |
+|---|---|---|
+| **PyPI Total Downloads (Clean)** | **806** | Direct pip installs (excluding automated bots) |
+| **PyPI Total Downloads (Gross)** | **2,560** | All recorded package pulls |
+| **Monthly PyPI Installs** | **43** | Downloads in the last 30 days |
+| **Desktop App Releases** | **7** | Native GUI & CLI desktop binary downloads |
+
+> 📈 *View the full breakdown by OS (Linux 56%, macOS 27%, Windows 17%), Python versions, and traffic history in **[ANALYTICS.md](ANALYTICS.md)**.*
+<!-- ANALYTICS:END -->
+
+---
+
 ## Citation
 
 If you use this in research, please cite via [`CITATION.cff`](CITATION.cff).
