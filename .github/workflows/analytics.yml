@@ -23,7 +23,7 @@ jobs:
 
       - name: Collect Analytics Data
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.TRAFFIC_PAT || secrets.GITHUB_TOKEN }}
         run: |
           python scripts/update_analytics.py
 
