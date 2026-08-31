@@ -1,10 +1,8 @@
-//! SPSS System File (.sav) writer.
+//! SPSS SAV writer.
 //!
-//! Implements a minimal write-only subset of the SPSS System File format
-//! described in the PSPP documentation:
-//! <https://www.gnu.org/software/pspp/pspp-dev/html_node/System-File-Format.html>
-//!
-//! The output can be read by SPSS, pyreadstat, and other compatible tools.
+//! Writes uncompressed SPSS system files (.sav) compliant with the SPSS
+//! file format specification. The output is readable by IBM SPSS Statistics,
+//! PSPP, and pyreadstat / pandas.
 
 use std::{
     fs::File,
@@ -31,10 +29,7 @@ const SPSS_NAME_LEN: usize = 8;
 enum SpssType {
     Numeric,
     /// Number of bytes (padded to multiple of 8).
-    Str {
-        width: usize,
-        n_segments: usize,
-    },
+    Str { width: usize, n_segments: usize },
 }
 
 impl SpssType {
@@ -81,21 +76,27 @@ fn pad8(s: &str, total_bytes: usize) -> Vec<u8> {
     v
 }
 
-pub struct SpssOutput {
-    writer: BufWriter<File>,
+pub struct SpssOutput<W: Write = BufWriter<File>> {
+    writer: W,
     types: Vec<SpssType>,
     nobs: u32,
     rows: Vec<u8>,
 }
 
-impl SpssOutput {
+impl SpssOutput<BufWriter<File>> {
     pub fn create(path: &Path, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
         let file = File::create(path).map_err(|e| {
             NesstarError::Unsupported(format!("cannot create SAV {}: {e}", path.display()))
         })?;
+        Self::from_writer(BufWriter::new(file), variables)
+    }
+}
+
+impl<W: Write> SpssOutput<W> {
+    pub fn from_writer(writer: W, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
         let types: Vec<SpssType> = variables.iter().map(SpssType::from_ddi).collect();
         Ok(Self {
-            writer: BufWriter::new(file),
+            writer,
             types,
             nobs: 0,
             rows: Vec::new(),
@@ -116,14 +117,13 @@ impl SpssOutput {
                         };
                         self.rows.extend_from_slice(&val.to_le_bytes());
                     }
-                    SpssType::Str { width, n_segments } => {
+                    SpssType::Str { n_segments, .. } => {
                         let s = match cell {
                             CellValue::Missing => "",
                             CellValue::Text(s) => s.as_str(),
                         };
-                        let bytes = pad8(s, n_segments * 8);
-                        let _ = width; // width encoded in pad8 via n_segments
-                        self.rows.extend_from_slice(&bytes);
+                        let padded = pad8(s, n_segments * 8);
+                        self.rows.extend_from_slice(&padded);
                     }
                 }
             }
@@ -131,76 +131,73 @@ impl SpssOutput {
         Ok(())
     }
 
-    pub fn finish(mut self, variables: &[VariableDefinition]) -> Result<(), String> {
+    pub fn finish(
+        mut self,
+        variables: &[VariableDefinition],
+    ) -> Result<W, String> {
         let w = &mut self.writer;
 
+        macro_rules! i32le {
+            ($v:expr) => {
+                w.write_all(&($v as i32).to_le_bytes())
+                    .map_err(|e| e.to_string())?
+            };
+        }
+        macro_rules! f64le {
+            ($v:expr) => {
+                w.write_all(&($v as f64).to_le_bytes())
+                    .map_err(|e| e.to_string())?
+            };
+        }
         macro_rules! w_all {
             ($b:expr) => {
                 w.write_all($b).map_err(|e| e.to_string())?
             };
         }
-        macro_rules! i32le {
-            ($v:expr) => {
-                w_all!(&($v as i32).to_le_bytes())
-            };
-        }
-        macro_rules! f64le {
-            ($v:expr) => {
-                w_all!(&($v as f64).to_le_bytes())
-            };
-        }
+
+        // Total number of 8-byte slots per observation across all vars
+        let nominal_case_size: usize = self.types.iter().map(SpssType::n_cells).sum();
 
         // ----------------------------------------------------------------
-        // Record 1: File Header
+        // Record 1: General Header (176 bytes)
         // ----------------------------------------------------------------
-        // Signature: 4 bytes
-        w_all!(b"$FL2");
-        // Product name: 60 bytes, space-padded
-        let mut prod = b"@(#) SPSS DATA FILE".to_vec();
-        prod.resize(60, b' ');
-        w_all!(&prod);
-        // layout code = 2 (little-endian)
-        i32le!(2i32);
-        // number of "observation variables" (each string segment counts)
-        let obs_vars: i32 = self.types.iter().map(|t| t.n_cells() as i32).sum();
-        i32le!(obs_vars);
-        // compression: 0 = none
-        i32le!(0i32);
-        // weight variable index: 0 = none
-        i32le!(0i32);
-        // number of cases: -1 = unknown (we'll patch below if needed, but -1 is accepted)
-        let n_cases_offset = 60 + 4 + 4 + 4 + 4; // byte offset of this field from start
-        let _ = n_cases_offset;
-        i32le!(self.nobs as i32);
-        // bias: 100.0 for uncompressed, but 0 here
-        f64le!(100.0f64);
-        // creation date: 9 bytes "01 Jan 01"
-        w_all!(b"01 Jan 01");
-        // creation time: 8 bytes "00:00:00"
-        w_all!(b"00:00:00");
-        // file label: 64 bytes, space-padded
-        let mut label = vec![b' '; 64];
-        label[0] = b'N';
-        label[1] = b'e';
-        label[2] = b's';
-        label[3] = b's';
-        label[4] = b't';
-        label[5] = b'a';
-        label[6] = b'r';
-        w_all!(&label);
-        // 3 bytes padding
-        w_all!(&[0u8, 0, 0]);
+        w_all!(b"$FL2"); // magic: 4 bytes
+        let prod = format!("@(#) SPSS DATA FILE NesstarConverter");
+        let mut prod_buf = [b' '; 60];
+        let p_bytes = prod.as_bytes();
+        prod_buf[..p_bytes.len().min(60)].copy_from_slice(&p_bytes[..p_bytes.len().min(60)]);
+        w_all!(&prod_buf);
+
+        i32le!(2i32); // layout_code: 2 = normal format
+        i32le!(nominal_case_size as i32); // nominal_case_size
+        i32le!(0i32); // compressed: 0 = uncompressed
+        i32le!(0i32); // weight_index: 0 = unweighted
+        i32le!(self.nobs as i32); // n_cases (-1 if unknown, we know nobs)
+        f64le!(100.0f64); // bias: compression bias (standard 100.0)
+
+        let creation_date = b"01 Jan 24";
+        let creation_time = b"00:00:00";
+        w_all!(creation_date);
+        w_all!(creation_time);
+
+        let mut flbl = [b' '; 64];
+        let ds_bytes = b"Nesstar Export";
+        flbl[..ds_bytes.len().min(64)].copy_from_slice(&ds_bytes[..ds_bytes.len().min(64)]);
+        w_all!(&flbl);
+
+        // Padding: 3 bytes zeros
+        w_all!(&[0u8, 0u8, 0u8]);
 
         // ----------------------------------------------------------------
-        // Record 2: Variable Records (one per cell, including string continuation)
+        // Record 2: Variable Records (one per variable + continuation records for strings)
         // ----------------------------------------------------------------
-        for (idx, var) in variables.iter().enumerate() {
-            let stype = &self.types[idx];
+        for (i, var) in variables.iter().enumerate() {
+            let stype = &self.types[i];
 
-            // First cell for this variable
-            i32le!(2i32); // record type 2
-            i32le!(stype.code());
-            i32le!(0i32); // has_var_label: we'll add labels below
+            i32le!(2i32); // rec_type: 2
+            i32le!(stype.code()); // type: 0=numeric, >0=string width
+            let has_label = !var.label.is_empty();
+            i32le!(if has_label { 1i32 } else { 0i32 });
             i32le!(0i32); // n_missing_values: 0
             // print format: type 5 = A (string), type 1 = F (float) — packed as bytes
             let print_fmt: i32 = match stype {
@@ -217,63 +214,77 @@ impl SpssOutput {
 
             // string continuation cells
             if let SpssType::Str { n_segments, .. } = stype {
-                for _ in 1..*n_segments {
-                    i32le!(2i32); // record type 2
-                    i32le!(-1i32); // type -1 = string continuation
-                    i32le!(0i32);
-                    i32le!(0i32);
-                    i32le!(0i32);
-                    i32le!(0i32);
-                    w_all!(b"        "); // 8 blank bytes for continuation name
+                if has_label {
+                    let lbl_bytes = var.label.as_bytes();
+                    let lbl_len = lbl_bytes.len().min(120);
+                    i32le!(lbl_len as i32);
+                    let pad_len = (4 - (lbl_len % 4)) % 4;
+                    w_all!(&lbl_bytes[..lbl_len]);
+                    w_all!(&vec![0u8; pad_len]);
                 }
+
+                for _ in 1..*n_segments {
+                    i32le!(2i32);
+                    i32le!(-1i32); // type -1: string continuation
+                    i32le!(0i32);
+                    i32le!(0i32);
+                    i32le!(0i32);
+                    i32le!(0i32);
+                    w_all!(&[b' '; 8]);
+                }
+            } else if has_label {
+                let lbl_bytes = var.label.as_bytes();
+                let lbl_len = lbl_bytes.len().min(120);
+                i32le!(lbl_len as i32);
+                let pad_len = (4 - (lbl_len % 4)) % 4;
+                w_all!(&lbl_bytes[..lbl_len]);
+                w_all!(&vec![0u8; pad_len]);
             }
         }
 
         // ----------------------------------------------------------------
-        // Record 3: Value Labels (none — empty)
-        // ----------------------------------------------------------------
-
-        // ----------------------------------------------------------------
-        // Record 6: Documents (none)
-        // ----------------------------------------------------------------
-
-        // ----------------------------------------------------------------
-        // Record 7: Machine-specific info (minimal)
-        // ----------------------------------------------------------------
-        i32le!(7i32); // record type 7
-        i32le!(3i32); // subtype 3: machine integer info
-        i32le!(4i32); // data element size: 4 bytes
-        i32le!(8i32); // 8 elements
-        i32le!(20i32); // version major
-        i32le!(0i32); // version minor
-        i32le!(0i32); // version revision
-        i32le!(-1i32); // machine code
-        i32le!(1i32); // floating-point representation: 1 = IEEE 754
-        i32le!(1i32); // compression code: 1 = bytecode (must match reference)
-        i32le!(2i32); // endianness: 2 = little-endian
-        i32le!(65001i32); // character code: 65001 = UTF-8
-
-        // ----------------------------------------------------------------
-        // Record 7 subtype 4: machine floating-point info
+        // Record 7 subtype 3: Machine integer info
         // ----------------------------------------------------------------
         i32le!(7i32);
-        i32le!(4i32); // subtype 4
-        i32le!(8i32); // element size: 8
-        i32le!(3i32); // 3 elements
-        f64le!(SPSS_SYSMIS); // SYSMIS
-        f64le!(f64::MAX); // HIGHEST
+        i32le!(3i32);
+        i32le!(4i32);
+        i32le!(8i32);
+        i32le!(1i32);
+        i32le!(2i32);
+        i32le!(1i32);
+        i32le!(1i32);
+        i32le!(65001i32);
+        i32le!(0i32);
+        i32le!(0i32);
+        i32le!(0i32);
+
+        // ----------------------------------------------------------------
+        // Record 7 subtype 4: Machine floating-point info
+        // ----------------------------------------------------------------
+        i32le!(7i32);
+        i32le!(4i32);
+        i32le!(8i32);
+        i32le!(3i32);
+        f64le!(SPSS_SYSMIS);
+        f64le!(1.7976931348623157e308f64);
+        f64le!(-1.7976931348623157e308f64);
+
+        // ----------------------------------------------------------------
+        // Record 7 subtype 20: Character encoding (UTF-8)
+        // ----------------------------------------------------------------
         {
-            // LOWEST: one ULP above -f64::MAX (matches SPSS convention)
-            let lowest_bits: u64 = (-f64::MAX).to_bits() - 1;
-            let lowest = f64::from_bits(lowest_bits);
-            f64le!(lowest);
+            let enc = b"UTF-8";
+            i32le!(7i32);
+            i32le!(20i32);
+            i32le!(1i32);
+            i32le!(enc.len() as i32);
+            w_all!(enc);
         }
 
         // ----------------------------------------------------------------
         // Record 7 subtype 13: long variable name map
         // ----------------------------------------------------------------
         {
-            // Build "SHORT=long\tSHORT2=long2\t..." mapping
             let mut name_map = String::new();
             for var in variables.iter() {
                 if !name_map.is_empty() {
@@ -287,8 +298,8 @@ impl SpssOutput {
             }
             let map_bytes = name_map.as_bytes();
             i32le!(7i32);
-            i32le!(13i32); // subtype 13
-            i32le!(1i32); // element size: 1 byte
+            i32le!(13i32);
+            i32le!(1i32);
             i32le!(map_bytes.len() as i32);
             w_all!(map_bytes);
         }
@@ -297,7 +308,7 @@ impl SpssOutput {
         // Record 999: End of dictionary
         // ----------------------------------------------------------------
         i32le!(999i32);
-        i32le!(0i32); // filler
+        i32le!(0i32);
 
         // ----------------------------------------------------------------
         // Data records (uncompressed)
@@ -305,6 +316,6 @@ impl SpssOutput {
         w_all!(&self.rows);
 
         w.flush().map_err(|e| e.to_string())?;
-        Ok(())
+        Ok(self.writer)
     }
 }

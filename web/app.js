@@ -1,7 +1,7 @@
 let wasmModule = null;
 let nesstarBytes = null;
 let ddiXml = null;
-let selectedFormat = 'csv';
+let selectedFormat = 'parquet';
 
 // Elements
 const nesstarInput = document.getElementById('nesstar-input');
@@ -127,10 +127,14 @@ convertBtn.addEventListener('click', async () => {
     
     // Create download
     const mimeTypes = {
+      parquet: 'application/vnd.apache.parquet',
+      dta: 'application/x-stata-dta',
+      sav: 'application/x-spss-sav',
       csv: 'text/csv;charset=utf-8;',
       tsv: 'text/tab-separated-values;charset=utf-8;',
       jsonl: 'application/x-ndjson;charset=utf-8;',
-      json: 'application/json;charset=utf-8;'
+      json: 'application/json;charset=utf-8;',
+      fwf: 'text/plain;charset=utf-8;'
     };
     
     const blob = new Blob([resultBytes], { type: mimeTypes[selectedFormat] || 'application/octet-stream' });

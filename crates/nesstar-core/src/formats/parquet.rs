@@ -5,7 +5,7 @@ pub use inner::ParquetOutput;
 
 #[cfg(feature = "parquet")]
 mod inner {
-    use std::{fs::File, path::Path, sync::Arc};
+    use std::{fs::File, io::Write, path::Path, sync::Arc};
 
     use arrow_array::{Float64Array, RecordBatch as ArrowBatch, StringArray, array::ArrayRef};
     use arrow_schema::{DataType, Field, Schema};
@@ -17,8 +17,8 @@ mod inner {
         model::{CellValue, DeclaredType, VariableDefinition},
     };
 
-    pub struct ParquetOutput {
-        writer: ArrowWriter<File>,
+    pub struct ParquetOutput<W: Write + Send + 'static = File> {
+        writer: ArrowWriter<W>,
         schema: Arc<Schema>,
         variables: Vec<VariableDefinition>,
     }
@@ -28,19 +28,24 @@ mod inner {
             DeclaredType::Numeric | DeclaredType::Other(_) => DataType::Float64,
             DeclaredType::Character => DataType::Utf8,
         };
-        Field::new(&var.name, dtype, true) // nullable=true for missing
+        Field::new(&var.name, dtype, true)
     }
 
-    impl ParquetOutput {
+    impl ParquetOutput<File> {
         pub fn create(path: &Path, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
-            let fields: Vec<Field> = variables.iter().map(field_for).collect();
-            let schema = Arc::new(Schema::new(fields));
-
             let file = File::create(path).map_err(|e| {
                 NesstarError::Unsupported(format!("cannot create Parquet {}: {e}", path.display()))
             })?;
+            Self::from_writer(file, variables)
+        }
+    }
+
+    impl<W: Write + Send + 'static> ParquetOutput<W> {
+        pub fn from_writer(writer: W, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
+            let fields: Vec<Field> = variables.iter().map(field_for).collect();
+            let schema = Arc::new(Schema::new(fields));
             let props = WriterProperties::builder().build();
-            let writer = ArrowWriter::try_new(file, schema.clone(), Some(props))
+            let writer = ArrowWriter::try_new(writer, schema.clone(), Some(props))
                 .map_err(|e| NesstarError::Unsupported(format!("Parquet writer: {e}")))?;
 
             Ok(Self {
@@ -89,8 +94,8 @@ mod inner {
             self.writer.write(&arrow_batch).map_err(|e| e.to_string())
         }
 
-        pub fn finish(self) -> Result<(), String> {
-            self.writer.close().map_err(|e| e.to_string()).map(|_| ())
+        pub fn finish(self) -> Result<W, String> {
+            self.writer.into_inner().map_err(|e| e.to_string())
         }
     }
 }

@@ -57,8 +57,8 @@ impl DtaType {
     }
 }
 
-pub struct DtaOutput {
-    writer: BufWriter<File>,
+pub struct DtaOutput<W: Write + Seek = BufWriter<File>> {
+    writer: W,
     types: Vec<DtaType>,
     nvar: u32,
     nobs: u64,
@@ -73,7 +73,7 @@ fn truncate_pad_utf8(s: &str, max_bytes: usize) -> Vec<u8> {
     bytes
 }
 
-impl DtaOutput {
+impl DtaOutput<BufWriter<File>> {
     pub fn create(
         path: &Path,
         headers: &[String],
@@ -82,10 +82,20 @@ impl DtaOutput {
         let file = File::create(path).map_err(|e| {
             NesstarError::Unsupported(format!("cannot create DTA {}: {e}", path.display()))
         })?;
+        Self::from_writer(BufWriter::new(file), headers, variables)
+    }
+}
+
+impl<W: Write + Seek> DtaOutput<W> {
+    pub fn from_writer(
+        writer: W,
+        headers: &[String],
+        variables: &[VariableDefinition],
+    ) -> Result<Self, NesstarError> {
         let types: Vec<DtaType> = variables.iter().map(DtaType::from_ddi).collect();
         let nvar = headers.len() as u32;
         Ok(Self {
-            writer: BufWriter::new(file),
+            writer,
             types,
             nvar,
             nobs: 0,
@@ -96,7 +106,7 @@ impl DtaOutput {
     pub fn write_batch(
         &mut self,
         batch: &RecordBatch,
-        variables: &[VariableDefinition],
+        _variables: &[VariableDefinition],
     ) -> Result<(), String> {
         for row in 0..batch.row_count {
             self.nobs += 1;
@@ -120,34 +130,26 @@ impl DtaOutput {
                         self.rows.extend_from_slice(&bytes);
                     }
                 }
-                let _ = variables; // suppress unused warning
             }
         }
         Ok(())
     }
 
-    /// Finalize and write the full DTA v118 binary file.
     pub fn finish(
         mut self,
-        headers: &[String],
+        _headers: &[String],
         variables: &[VariableDefinition],
-    ) -> Result<(), String> {
+    ) -> Result<W, String> {
         let w = &mut self.writer;
 
-        let mut map_offsets = [0u64; 14];
-        let map_pos = 158u64;
-        map_offsets[1] = map_pos;
-
-        macro_rules! record_pos {
-            ($idx:expr) => {
-                w.flush().map_err(|e| e.to_string())?;
-                map_offsets[$idx] = w.stream_position().map_err(|e| e.to_string())?;
+        macro_rules! tag {
+            ($t:expr) => {
+                w.write_all($t.as_bytes()).map_err(|e| e.to_string())?
             };
         }
-
-        macro_rules! tag {
-            ($s:expr) => {
-                w.write_all($s.as_bytes()).map_err(|e| e.to_string())?
+        macro_rules! u8v {
+            ($v:expr) => {
+                w.write_all(&[$v]).map_err(|e| e.to_string())?
             };
         }
         macro_rules! u16le {
@@ -156,7 +158,6 @@ impl DtaOutput {
                     .map_err(|e| e.to_string())?
             };
         }
-
         macro_rules! u64le {
             ($v:expr) => {
                 w.write_all(&($v as u64).to_le_bytes())
@@ -165,84 +166,88 @@ impl DtaOutput {
         }
         macro_rules! i8le {
             ($v:expr) => {
-                w.write_all(&[$v as u8]).map_err(|e| e.to_string())?
+                w.write_all(&($v as i8).to_le_bytes())
+                    .map_err(|e| e.to_string())?
             };
         }
 
-        // --- <stata_dta> header ------------------------------------------------
-        tag!("<stata_dta>");
-        tag!("<header>");
-        tag!("<release>118</release>");
-        tag!("<byteorder>LSF</byteorder>"); // little-endian
+        // --- Header -----------------------------------------------------------
+        tag!("<stata_dta><header><release>118</release><byteorder>LSF</byteorder>");
         tag!("<K>");
         u16le!(self.nvar);
-        tag!("</K>");
-        tag!("<N>");
+        tag!("</K><N>");
         u64le!(self.nobs);
-        tag!("</N>");
-        // dataset label (up to 80 bytes, starts with u16 length)
-        tag!("<label>");
-        let empty_label = [0u8, 0]; // u16 length = 0, no label string follows
-        w.write_all(&empty_label).map_err(|e| e.to_string())?;
-        tag!("</label>");
-        // timestamp (18 bytes: 0x11 followed by 17 spaces)
-        tag!("<timestamp>");
-        let ts = b"\x11                 "; // 0x11 prefix + 17 spaces
-        w.write_all(ts).map_err(|e| e.to_string())?;
-        tag!("</timestamp>");
-        tag!("</header>");
+        tag!("</N><label>");
+        let ds_label_bytes = truncate_pad_utf8("Nesstar Export", 80);
+        u8v!(ds_label_bytes.len().min(80) as u8);
+        w.write_all(&ds_label_bytes[..ds_label_bytes.len().min(80)])
+            .map_err(|e| e.to_string())?;
+        tag!("</label><timestamp>");
+        let ts_str = "01 Jan 2024 00:00";
+        u8v!(ts_str.len() as u8);
+        tag!(ts_str);
+        tag!("</timestamp></header>");
 
-        // --- <map> (14 × u64 offsets, finalised at the end) -------------------
+        // --- <map> (placeholder offsets, patched at the end) -----------------
+        let map_pos = w.stream_position().map_err(|e| e.to_string())?;
         tag!("<map>");
-        let map_placeholder = vec![0u8; 14 * 8];
-        w.write_all(&map_placeholder).map_err(|e| e.to_string())?;
+        let mut map_offsets = [0u64; 14];
+        for _ in 0..14 {
+            u64le!(0u64);
+        }
         tag!("</map>");
 
+        macro_rules! record_pos {
+            ($idx:expr) => {
+                map_offsets[$idx] = w.stream_position().map_err(|e| e.to_string())?;
+            };
+        }
+
         // --- <variable_types> ------------------------------------------------
-        record_pos!(2);
+        record_pos!(1);
         tag!("<variable_types>");
         for dtype in &self.types {
             u16le!(dtype.code());
         }
         tag!("</variable_types>");
 
-        // --- <varnames> (each name = 33 bytes, null-terminated) ---------------
-        record_pos!(3);
+        // --- <varnames> (129 bytes each, null-terminated) --------------------
+        record_pos!(2);
         tag!("<varnames>");
-        for name in headers {
+        for var in variables {
             let mut buf = vec![0u8; STATA_NAME_LEN];
-            let src = name.as_bytes();
-            let len = src.len().min(STATA_NAME_LEN - 1);
-            buf[..len].copy_from_slice(&src[..len]);
+            let name_bytes = var.name.as_bytes();
+            let len = name_bytes.len().min(STATA_NAME_LEN - 1);
+            buf[..len].copy_from_slice(&name_bytes[..len]);
             w.write_all(&buf).map_err(|e| e.to_string())?;
         }
         tag!("</varnames>");
 
-        // --- <sortlist> (nvar+1 × u16, all zero = unsorted) ------------------
-        record_pos!(4);
+        // --- <sortlist> (2 bytes per var * (K+1), all 0 = unsorted) ----------
+        record_pos!(3);
         tag!("<sortlist>");
-        let sortlist = vec![0u8; (self.nvar as usize + 1) * 2];
-        w.write_all(&sortlist).map_err(|e| e.to_string())?;
+        for _ in 0..=(self.nvar as usize) {
+            u16le!(0u16);
+        }
         tag!("</sortlist>");
 
-        // --- <formats> (57 bytes each) ----------------------------------------
-        record_pos!(5);
+        // --- <formats> (57 bytes each) ---------------------------------------
+        record_pos!(4);
         tag!("<formats>");
-        for dtype in &self.types {
+        for (i, var) in variables.iter().enumerate() {
             let mut buf = vec![0u8; 57];
-            let fmt: &[u8] = match dtype {
-                DtaType::Double => b"%10.0g",
-                DtaType::Str(n) => {
-                    let s = format!("%{}s", n);
-                    let bytes = s.as_bytes();
-                    let len = bytes.len().min(56);
-                    buf[..len].copy_from_slice(&bytes[..len]);
+            let fmt_bytes = match self.types[i] {
+                DtaType::Double => b"%9.0g".as_slice(),
+                DtaType::Str(_) => {
+                    let w_str = format!("%{}s", var.ddi_width.clamp(1, STATA_STR_MAX as u32));
+                    let len = w_str.len().min(56);
+                    buf[..len].copy_from_slice(&w_str.as_bytes()[..len]);
                     w.write_all(&buf).map_err(|e| e.to_string())?;
                     continue;
                 }
             };
-            let len = fmt.len().min(56);
-            buf[..len].copy_from_slice(&fmt[..len]);
+            let len = fmt_bytes.len().min(56);
+            buf[..len].copy_from_slice(&fmt_bytes[..len]);
             w.write_all(&buf).map_err(|e| e.to_string())?;
         }
         tag!("</formats>");
@@ -305,6 +310,6 @@ impl DtaOutput {
         // suppress unused-variable warnings
         i8le!(0u8);
 
-        Ok(())
+        Ok(self.writer)
     }
 }
