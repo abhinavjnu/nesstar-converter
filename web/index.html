@@ -260,9 +260,9 @@
   <div class="container">
     <header>
       <h1>Nesstar Converter</h1>
-      <p class="subtitle">Open proprietary <code>.Nesstar</code> survey microdata in your browser</p>
+      <p class="subtitle">Client-Side Microdata Parser for <code>.Nesstar</code> Containers</p>
       <div class="privacy-badge">
-        🔒 100% Client-Side WebAssembly — No files leave your device
+        Client-Side WebAssembly: All processing runs locally in browser memory
       </div>
     </header>
 
@@ -270,17 +270,15 @@
       <div class="dropzone-grid">
         <div class="dropzone" id="nesstar-dropzone">
           <input type="file" id="nesstar-input" accept=".Nesstar,.nesstar">
-          <div class="dropzone-icon">📊</div>
-          <div class="dropzone-title">1. Select .Nesstar File</div>
-          <div class="dropzone-desc">Drag & drop survey binary file</div>
+          <div class="dropzone-title">1. Binary Container (.Nesstar)</div>
+          <div class="dropzone-desc">Select or drop survey data file</div>
           <div class="file-status" id="nesstar-status">No file selected</div>
         </div>
 
         <div class="dropzone" id="ddi-dropzone">
           <input type="file" id="ddi-input" accept=".xml,.ddi">
-          <div class="dropzone-icon">📋</div>
-          <div class="dropzone-title">2. Select DDI XML</div>
-          <div class="dropzone-desc">Drag & drop companion XML metadata</div>
+          <div class="dropzone-title">2. DDI Codebook (.xml)</div>
+          <div class="dropzone-desc">Select or drop companion metadata</div>
           <div class="file-status" id="ddi-status">No file selected</div>
         </div>
       </div>
@@ -296,8 +294,8 @@
       </div>
 
       <div class="actions">
-        <button class="btn btn-secondary" id="preview-btn" disabled>🔍 Preview Data</button>
-        <button class="btn btn-primary" id="convert-btn" disabled>⚡ Convert & Download</button>
+        <button class="btn btn-secondary" id="preview-btn" disabled>Preview Data</button>
+        <button class="btn btn-primary" id="convert-btn" disabled>Convert & Download</button>
       </div>
 
       <div class="status-msg" id="status-box"></div>

@@ -176,26 +176,25 @@ tot_hist_views = sum(v.get("count", 0) for v in views_hist.values())
 tot_hist_clones = sum(c.get("count", 0) for c in clones_hist.values())
 
 md = []
-md.append("# 📈 Nesstar Converter — Analytics & Usage Report\n")
+md.append("# Nesstar Converter — Analytics & Usage Report\n")
 md.append(f"> **Last Updated:** `{now_str}` *(Automatically updated daily via GitHub Actions)*\n")
 
-md.append("## 🚀 Overview Summary\n")
+md.append("## Overview Summary\n")
 md.append("| Metric | Count | Description |")
 md.append("|---|---|---|")
-md.append(f"| **PyPI Total Downloads (Clean)** | **{total_without_mirrors:,}** | Direct pip installs (excluding mirror bots) |")
-md.append(f"| **PyPI Total Downloads (Gross)** | **{total_with_mirrors:,}** | All recorded package downloads |")
-md.append(f"| **PyPI Monthly Installs** | **{pypi_recent.get('last_month', 43):,}** | Downloads in the last 30 days |")
-md.append(f"| **GitHub Release Binaries** | **{total_release_dl:,}** | GUI & CLI native executable downloads |")
+md.append(f"| **PyPI Total Downloads (Clean)** | **{total_without_mirrors:,}** | Direct package installations (excluding mirror indexing bots) |")
+md.append(f"| **PyPI Total Downloads (Gross)** | **{total_with_mirrors:,}** | Total recorded package downloads |")
+md.append(f"| **PyPI Monthly Installs** | **{pypi_recent.get('last_month', 43):,}** | Installations within the last 30 days |")
+md.append(f"| **GitHub Release Binaries** | **{total_release_dl:,}** | Standalone GUI and CLI binary distributions |")
 md.append(f"| **Tracked Git Clones** | **{tot_hist_clones:,}** | Total recorded git clone operations |")
-md.append(f"| **Tracked Repo Views** | **{tot_hist_views:,}** | Total recorded page visits |\n")
+md.append(f"| **Tracked Page Views** | **{tot_hist_views:,}** | Total recorded repository page visits |\n")
 
-md.append("## 📦 PyPI Package Downloads Breakdown\n")
+md.append("## PyPI Package Downloads Breakdown\n")
 md.append("### By Operating System")
 md.append("| Operating System | Direct Downloads |")
 md.append("|---|---|")
 for os_name, cnt in sorted(os_counts.items(), key=lambda x: x[1], reverse=True):
-    icon = "🐧" if "linux" in os_name.lower() else ("🍎" if "darwin" in os_name.lower() or "macos" in os_name.lower() else ("🪟" if "windows" in os_name.lower() else "💻"))
-    md.append(f"| {icon} {os_name} | {cnt:,} |")
+    md.append(f"| {os_name} | {cnt:,} |")
 md.append("")
 
 md.append("### By Python Version")
@@ -205,7 +204,7 @@ for py_ver, cnt in sorted(py_counts.items(), key=lambda x: x[1], reverse=True):
     md.append(f"| Python {py_ver} | {cnt:,} |")
 md.append("\n---\n")
 
-md.append("## 💾 GitHub Release Executables (Desktop GUI / CLI)\n")
+md.append("## GitHub Release Executables (Desktop GUI / CLI)\n")
 if release_assets:
     md.append("| Release | Binary Asset | Size | Downloads |")
     md.append("|---|---|---|---|")
@@ -215,7 +214,7 @@ else:
     md.append("*No release assets found.*")
 md.append("\n---\n")
 
-md.append("## 🌐 Permanent GitHub Traffic History\n")
+md.append("## Longitudinal Traffic History\n")
 md.append("| Date | Page Views (Count / Unique) | Git Clones (Count / Unique) |")
 md.append("|---|---|---|")
 
@@ -226,10 +225,10 @@ for d in all_dates:
     md.append(f"| `{d}` | {v.get('count', 0)} ({v.get('uniques', 0)} unique) | {c.get('count', 0)} ({c.get('uniques', 0)} unique) |")
 
 md.append("\n---\n")
-md.append("### 🔗 Quick Analytics Links\n")
-md.append(f"- **[PePy.tech Dashboard](https://pepy.tech/project/{PYPI_PACKAGE})** — PyPI lifetime charts & daily graphs")
-md.append(f"- **[PyPI Stats Dashboard](https://pypistats.org/packages/{PYPI_PACKAGE})** — PyPI OS and minor version breakdown")
-md.append(f"- **[GitHub Insights Traffic](https://github.com/{REPO}/graphs/traffic)** — Official GitHub 14-day rolling traffic\n")
+md.append("### Reference Dashboards\n")
+md.append(f"- [PePy.tech Dashboard](https://pepy.tech/project/{PYPI_PACKAGE}) — PyPI lifetime charts & daily graphs")
+md.append(f"- [PyPI Stats Dashboard](https://pypistats.org/packages/{PYPI_PACKAGE}) — PyPI OS and minor version breakdown")
+md.append(f"- [GitHub Insights Traffic](https://github.com/{REPO}/graphs/traffic) — Official GitHub 14-day rolling traffic\n")
 
 with open(MARKDOWN_FILE, "w", encoding="utf-8") as f:
     f.write("\n".join(md))
@@ -240,16 +239,16 @@ if os.path.exists(README_FILE):
         readme_content = f.read()
 
     summary_block = f"""<!-- ANALYTICS:START -->
-## 📊 Analytics & Usage Stats
+## Usage Statistics
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **{total_without_mirrors:,}** | Direct pip installs (excluding automated bots) |
-| **PyPI Total Downloads (Gross)** | **{total_with_mirrors:,}** | All recorded package pulls |
-| **Monthly PyPI Installs** | **{pypi_recent.get('last_month', 43):,}** | Downloads in the last 30 days |
-| **Desktop App Releases** | **{total_release_dl:,}** | Native GUI & CLI desktop binary downloads |
+| **PyPI Total Downloads (Clean)** | **{total_without_mirrors:,}** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **{total_with_mirrors:,}** | Total recorded package pulls |
+| **Monthly PyPI Installs** | **{pypi_recent.get('last_month', 43):,}** | Installations within the last 30 days |
+| **Desktop Releases Downloaded** | **{total_release_dl:,}** | Standalone GUI and CLI binary distributions |
 
-> 📈 *View the full breakdown by OS (Linux 56%, macOS 27%, Windows 17%), Python versions, and traffic history in **[ANALYTICS.md](ANALYTICS.md)**.*
+*Detailed breakdowns by operating system, Python version, and longitudinal traffic history are documented in [ANALYTICS.md](ANALYTICS.md).*
 <!-- ANALYTICS:END -->"""
 
     if "<!-- ANALYTICS:START -->" in readme_content:
@@ -260,7 +259,6 @@ if os.path.exists(README_FILE):
             flags=re.DOTALL
         )
     else:
-        # Insert before Citation section or at end
         if "## Citation" in readme_content:
             new_readme = readme_content.replace("## Citation", f"{summary_block}\n\n---\n\n## Citation")
         else:
@@ -269,4 +267,4 @@ if os.path.exists(README_FILE):
     with open(README_FILE, "w", encoding="utf-8") as f:
         f.write(new_readme)
 
-print("Successfully generated ANALYTICS.md and updated README.md + traffic_history.json!")
+print("Successfully generated institutional ANALYTICS.md and updated README.md + traffic_history.json!")

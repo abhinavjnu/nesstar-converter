@@ -1,26 +1,26 @@
-# 📈 Nesstar Converter — Analytics & Usage Report
+# Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-08-31 17:15:39 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-08-31 18:48:36 UTC` *(Automatically updated daily via GitHub Actions)*
 
-## 🚀 Overview Summary
+## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **806** | Direct pip installs (excluding mirror bots) |
-| **PyPI Total Downloads (Gross)** | **2,560** | All recorded package downloads |
-| **PyPI Monthly Installs** | **43** | Downloads in the last 30 days |
-| **GitHub Release Binaries** | **7** | GUI & CLI native executable downloads |
+| **PyPI Total Downloads (Clean)** | **806** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **2,560** | Total recorded package downloads |
+| **PyPI Monthly Installs** | **43** | Installations within the last 30 days |
+| **GitHub Release Binaries** | **7** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
-| **Tracked Repo Views** | **1** | Total recorded page visits |
+| **Tracked Page Views** | **1** | Total recorded repository page visits |
 
-## 📦 PyPI Package Downloads Breakdown
+## PyPI Package Downloads Breakdown
 
 ### By Operating System
 | Operating System | Direct Downloads |
 |---|---|
-| 🐧 Linux | 106 |
-| 🍎 Darwin | 52 |
-| 🪟 Windows | 32 |
+| Linux | 106 |
+| Darwin | 52 |
+| Windows | 32 |
 
 ### By Python Version
 | Python Version | Direct Downloads |
@@ -33,7 +33,7 @@
 
 ---
 
-## 💾 GitHub Release Executables (Desktop GUI / CLI)
+## GitHub Release Executables (Desktop GUI / CLI)
 
 | Release | Binary Asset | Size | Downloads |
 |---|---|---|---|
@@ -46,7 +46,7 @@
 
 ---
 
-## 🌐 Permanent GitHub Traffic History
+## Longitudinal Traffic History
 
 | Date | Page Views (Count / Unique) | Git Clones (Count / Unique) |
 |---|---|---|
@@ -67,8 +67,8 @@
 
 ---
 
-### 🔗 Quick Analytics Links
+### Reference Dashboards
 
-- **[PePy.tech Dashboard](https://pepy.tech/project/nesstar-converter)** — PyPI lifetime charts & daily graphs
-- **[PyPI Stats Dashboard](https://pypistats.org/packages/nesstar-converter)** — PyPI OS and minor version breakdown
-- **[GitHub Insights Traffic](https://github.com/abhinavjnu/nesstar-converter/graphs/traffic)** — Official GitHub 14-day rolling traffic
+- [PePy.tech Dashboard](https://pepy.tech/project/nesstar-converter) — PyPI lifetime charts & daily graphs
+- [PyPI Stats Dashboard](https://pypistats.org/packages/nesstar-converter) — PyPI OS and minor version breakdown
+- [GitHub Insights Traffic](https://github.com/abhinavjnu/nesstar-converter/graphs/traffic) — Official GitHub 14-day rolling traffic

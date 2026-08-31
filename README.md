@@ -5,48 +5,54 @@
 [![Downloads](https://static.pepy.tech/badge/nesstar-converter)](https://pepy.tech/project/nesstar-converter)
 [![GitHub Release](https://img.shields.io/github/v/release/abhinavjnu/nesstar-converter)](https://github.com/abhinavjnu/nesstar-converter/releases/latest)
 [![GitHub all releases](https://img.shields.io/github/downloads/abhinavjnu/nesstar-converter/total?color=orange&label=release%20downloads)](https://github.com/abhinavjnu/nesstar-converter/releases)
-[![Analytics](https://img.shields.io/badge/📈_Usage-Analytics-blueviolet)](ANALYTICS.md)
+[![Analytics](https://img.shields.io/badge/Usage_Analytics-blueviolet)](ANALYTICS.md)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml)
 
-**`nesstar-converter`** is a high-performance parser, streaming engine, and native desktop app for reading locked proprietary `.Nesstar` survey files (used widely by India's MoSPI/NSS, European Social Survey, and national data archives). It reverse-engineers the binary format without requiring legacy Windows software, converting multi-gigabyte survey datasets directly into **Apache Parquet, Stata (.dta), SPSS (.sav), CSV, and Excel**.
+`nesstar-converter` is an open-source parser, streaming engine, and cross-platform desktop application for reading proprietary `.Nesstar` microdata containers (disseminated by India's Ministry of Statistics and Programme Implementation, the European Social Survey, and national data archives). It reverse-engineers the binary format without requiring legacy Windows software, converting multi-gigabyte survey datasets directly into Apache Parquet, Stata (`.dta`), SPSS (`.sav`), CSV, and JSON Lines.
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
-### 1. 🌐 Web App (WebAssembly) — *Zero Installation, 100% Private*
+### 1. Web Application (WebAssembly)
 
-> **👉 [Launch Web Converter (abhinavjnu.github.io/nesstar-converter)](https://abhinavjnu.github.io/nesstar-converter/)**
-> 
-> *Convert `.Nesstar` files directly in your web browser using client-side WebAssembly. Zero files leave your machine.*
+Run conversions directly inside modern web browsers with 100% client-side privacy:
+
+[Launch Web Converter (abhinavjnu.github.io/nesstar-converter)](https://abhinavjnu.github.io/nesstar-converter/)
+
+*Zero installation. No data or files are transmitted to any server; execution runs entirely in local browser memory.*
 
 ---
 
-### 2. 🖥️ Desktop App (GUI) — *No Terminal Required*
+### 2. Desktop Application
 
-Download the standalone native application (~16 MB, zero dependencies):
+Standalone native desktop application (~16 MB, zero external runtime dependencies):
 
-| Platform | Download | Instructions |
+| Platform | Package | Installation |
 |---|---|---|
-| 🪟 **Windows** | [NesstarConverter-Windows.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Unzip and run `NesstarConverter.exe` |
-| 🐧 **Linux** | [nesstar-converter.deb](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Install `.deb` package or run standalone binary |
-| 🍎 **macOS** | [NesstarConverter-macOS.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Drag `NesstarConverter.app` to Applications |
+| Windows (x86_64) | [NesstarConverter-Windows.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Extract archive and run `NesstarConverter.exe` |
+| Linux (x86_64) | [nesstar-converter.deb](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Install `.deb` package or run standalone binary |
+| macOS (Apple Silicon / Intel) | [NesstarConverter-macOS.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Move `NesstarConverter.app` to Applications |
 
 ---
 
-### 3. ⚡ High-Speed Rust CLI — *For Data Pipelines*
+### 3. Command Line Interface
+
+High-throughput streaming conversion tool for batch data engineering pipelines:
 
 ```bash
-# Convert to Parquet, CSV, Stata (.dta), SPSS (.sav), or TSV (.txt)
+# Convert to Parquet, Stata (.dta), SPSS (.sav), CSV, TSV, or JSON Lines (.jsonl)
 nesstar-cli convert survey.Nesstar ddi.xml ./output/dataset.parquet
 ```
 
-*Infers output format directly from destination file extension.*
+*Output format is automatically inferred from the target file extension.*
 
 ---
 
-### 4. 🐍 Python Library & CLI — *For Pandas, Polars & Jupyter*
+### 4. Python Library
+
+Python package for integration with Pandas, Polars, PyArrow, and Jupyter analysis environments:
 
 ```bash
 pip install -U nesstar-converter
@@ -55,63 +61,63 @@ pip install -U nesstar-converter
 ```python
 from nesstar_converter import convert_nesstar, show_info
 
-# Inspect metadata & data blocks
+# Display survey structure and metadata blocks
 show_info("survey.Nesstar", "ddi.xml")
 
 # Convert to Parquet and CSV
 convert_nesstar("survey.Nesstar", "ddi.xml", "./output", formats=["parquet", "csv"])
 ```
 
-**Python CLI:**
+**CLI Usage:**
 ```bash
 nesstar-converter convert survey.Nesstar ddi.xml ./output --formats parquet,csv,stata
 ```
 
 ---
 
-## 📦 Supported Formats
+## Supported Formats
 
-| Format | Extension | Primary Use Case |
+| Format | Extension | Intended Use Case |
 |---|---|---|
-| **Apache Parquet** | `.parquet` | Python, R, DuckDB, Polars, long-term analytical storage |
-| **Stata** | `.dta` | Econometric modeling in Stata (preserves leading zeros & types) |
-| **SPSS** | `.sav` | Social science analysis in SPSS / PSPP |
-| **CSV / TSV** | `.csv` / `.tsv` | Universal tabular interchange, Excel, Google Sheets |
-| **Excel** | `.xlsx` | Spreadsheet review with formatted headers |
-| **JSON / JSONL** | `.json` / `.jsonl` | Web applications and streaming data pipelines |
+| Apache Parquet | `.parquet` | High-performance analytical storage, DuckDB, Polars, Pandas |
+| Stata Data File | `.dta` | Econometric estimation in Stata (preserves leading zeros and variable types) |
+| SPSS System File | `.sav` | Statistical analysis in SPSS and PSPP |
+| Delimited Text | `.csv` / `.tsv` | Tabular data interchange across spreadsheets and databases |
+| JSON Lines | `.jsonl` | Record-oriented streaming ingestion, cloud data warehouses, AI pipelines |
+| Fixed-Width Text | `.fwf` | Column-aligned text for legacy archive compatibility |
 
 ---
 
-## 🌟 Key Features
+## Core Capabilities
 
-- **No Windows Executable Required**: 100% native reverse-engineered parser running seamlessly on Linux, macOS, and Windows.
-- **Large Dataset Support (>4 GB)**: Supports 48-bit index offsets for massive longitudinal surveys (e.g. NSS 68th Round Consumer Expenditure).
-- **Streaming & Low Memory**: Memory-mapped zero-copy decoding maintains a flat ~16 MB RAM footprint regardless of dataset size.
-- **Cell-Level Rigor**: Differential validation against official Nesstar Explorer exports on **30,000,000+ survey cells** with 0.00% mismatch.
+- **Native Binary Parser**: Independent reverse-engineered binary reader; eliminates dependency on discontinued 32-bit Windows executables.
+- **Large Dataset Support (>4 GB)**: Implements 48-bit pointer offsets, resolving legacy 32-bit integer overflow limitations on large longitudinal surveys.
+- **Constant Memory Streaming**: Memory-mapped streaming decoders maintain a flat ~16 MB RAM footprint across multi-gigabyte files.
+- **Differential Validation**: Verified against official Nesstar Explorer exports across 30,000,000+ data cells with 0.00% discrepancy.
 
 ---
 
 <!-- ANALYTICS:START -->
-## 📊 Analytics & Usage Stats
+## Usage Statistics
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **806** | Direct pip installs (excluding automated bots) |
-| **PyPI Total Downloads (Gross)** | **2,560** | All recorded package pulls |
-| **Monthly PyPI Installs** | **43** | Downloads in the last 30 days |
-| **Desktop App Releases** | **7** | Native GUI & CLI desktop binary downloads |
+| **PyPI Total Downloads (Clean)** | **806** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **2,560** | Total recorded package pulls |
+| **Monthly PyPI Installs** | **43** | Installations within the last 30 days |
+| **Desktop Releases Downloaded** | **7** | Standalone GUI and CLI binary distributions |
 
-> 📈 *View the full breakdown by OS (Linux 56%, macOS 27%, Windows 17%), Python versions, and traffic history in **[ANALYTICS.md](ANALYTICS.md)**.*
+*Detailed breakdowns by operating system, Python version, and longitudinal traffic history are documented in [ANALYTICS.md](ANALYTICS.md).*
 <!-- ANALYTICS:END -->
 
 ---
 
-## 📚 Documentation & Research
+## Documentation and Citation
 
-- **Technical Specifications & Binary Layout**: [`docs/TECHNICAL.md`](docs/TECHNICAL.md)
-- **Global Institutional Coverage**: [`docs/global-coverage.md`](docs/global-coverage.md)
-- **Academic Citation**: Please cite via [`CITATION.cff`](CITATION.cff) or [`paper/paper.md`](paper/paper.md).
+- **Technical Reference & Specification**: [`docs/TECHNICAL.md`](docs/TECHNICAL.md)
+- **Institutional Archive Coverage**: [`docs/global-coverage.md`](docs/global-coverage.md)
+- **Academic Citation**: Please reference [`CITATION.cff`](CITATION.cff) or the preprint in [`paper/paper.md`](paper/paper.md).
 
 ## License
 
-[MIT](LICENSE) © Abhinav Kumar
+MIT License. Copyright (c) Abhinav Kumar.

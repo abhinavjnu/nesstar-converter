@@ -308,9 +308,9 @@ impl eframe::App for ConverterApp {
                     ui.small("NAVIGATION");
                     ui.add_space(6.0);
 
-                    ui.selectable_value(&mut self.active_tab, GuiTab::Single, "📄 Single File");
-                    ui.selectable_value(&mut self.active_tab, GuiTab::Batch, "📁 Batch Folder");
-                    ui.selectable_value(&mut self.active_tab, GuiTab::Preview, "🔍 Data Preview");
+                    ui.selectable_value(&mut self.active_tab, GuiTab::Single, "Single File");
+                    ui.selectable_value(&mut self.active_tab, GuiTab::Batch, "Batch Directory");
+                    ui.selectable_value(&mut self.active_tab, GuiTab::Preview, "Data Preview");
 
                     ui.add_space(20.0);
                     ui.separator();
@@ -319,7 +319,7 @@ impl eframe::App for ConverterApp {
                     // Builder Credits
                     ui.small("DEVELOPED BY");
                     ui.add_space(2.0);
-                    ui.strong("Abhinav");
+                    ui.strong("Abhinav Kumar");
                     ui.hyperlink_to("@abhinavjnu", "https://github.com/abhinavjnu");
 
                     ui.add_space(20.0);
@@ -329,11 +329,11 @@ impl eframe::App for ConverterApp {
                     ui.small("SUPPORT THE PROJECT");
                     ui.add_space(8.0);
 
-                    if ui.add_sized([150.0, 28.0], egui::Button::new("❤️ Sponsor on GitHub")).clicked() {
+                    if ui.add_sized([150.0, 28.0], egui::Button::new("Sponsor on GitHub")).clicked() {
                         let _ = webbrowser::open("https://github.com/sponsors/abhinavjnu");
                     }
                     ui.add_space(6.0);
-                    if ui.add_sized([150.0, 28.0], egui::Button::new("☕ Buy Me a Coffee")).clicked() {
+                    if ui.add_sized([150.0, 28.0], egui::Button::new("Buy Me a Coffee")).clicked() {
                         let _ = webbrowser::open("https://buymeacoffee.com/abhinavjnu");
                     }
                 });
@@ -436,7 +436,7 @@ impl ConverterApp {
         let busy = self.worker.is_some();
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(!busy, egui::Button::new(format!("⚡ Convert to {}", self.format.label())))
+                .add_enabled(!busy, egui::Button::new(format!("Convert to {}", self.format.label())))
                 .clicked()
             {
                 self.start_single();
@@ -454,7 +454,7 @@ impl ConverterApp {
 
     fn render_batch_tab(&mut self, ui: &mut egui::Ui) {
         ui.heading("Batch Directory Conversion");
-        ui.label("Convert multiple survey rounds in one click.");
+        ui.label("Convert multiple survey rounds in a single operation.");
         ui.add_space(14.0);
 
         ui.horizontal(|ui| {
@@ -494,7 +494,7 @@ impl ConverterApp {
         ui.separator();
         ui.add_space(12.0);
 
-        if ui.button(format!("🚀 Convert All ({}) Files", self.batch_files.len())).clicked() {
+        if ui.button(format!("Convert All ({}) Files", self.batch_files.len())).clicked() {
             self.run_batch();
         }
 
@@ -506,11 +506,11 @@ impl ConverterApp {
 
     fn render_preview_tab(&mut self, ui: &mut egui::Ui) {
         ui.heading("Data Preview");
-        ui.label("Instant in-memory preview of the first 50 survey rows.");
+        ui.label("In-memory preview of the first 50 survey records.");
         ui.add_space(10.0);
 
         ui.horizontal(|ui| {
-            if ui.button("🔄 Load / Refresh Preview").clicked() {
+            if ui.button("Load Preview").clicked() {
                 self.load_preview();
             }
             if self.preview_loading {
