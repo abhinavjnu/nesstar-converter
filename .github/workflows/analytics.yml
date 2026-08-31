@@ -1,0 +1,40 @@
+name: Track Analytics & Traffic
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight UTC
+  workflow_dispatch:       # Allow manual run from GitHub Actions UI
+
+permissions:
+  contents: write
+
+jobs:
+  update-analytics:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Collect Analytics Data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/update_analytics.py
+
+      - name: Commit and Push Updated Stats
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ANALYTICS.md analytics/traffic_history.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "📊 Update analytics & traffic history [skip ci]"
+            git push
+          fi

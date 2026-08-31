@@ -1,7 +1,11 @@
 # Nesstar Converter
 
 [![PyPI](https://img.shields.io/pypi/v/nesstar-converter)](https://pypi.org/project/nesstar-converter/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/nesstar-converter?color=blue&label=PyPI%20downloads%2Fmonth)](https://pypistats.org/packages/nesstar-converter)
+[![Downloads](https://static.pepy.tech/badge/nesstar-converter)](https://pepy.tech/project/nesstar-converter)
 [![GitHub Release](https://img.shields.io/github/v/release/abhinavjnu/nesstar-converter)](https://github.com/abhinavjnu/nesstar-converter/releases/latest)
+[![GitHub all releases](https://img.shields.io/github/downloads/abhinavjnu/nesstar-converter/total?color=orange&label=release%20downloads)](https://github.com/abhinavjnu/nesstar-converter/releases)
+[![Analytics](https://img.shields.io/badge/📈_Usage-Analytics-blueviolet)](ANALYTICS.md)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml/badge.svg)](https://github.com/abhinavjnu/nesstar-converter/actions/workflows/ci.yml)
