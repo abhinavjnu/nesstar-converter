@@ -7,7 +7,7 @@
 
 use std::{
     fs::File,
-    io::{BufWriter, Write, Seek, SeekFrom},
+    io::{BufWriter, Seek, SeekFrom, Write},
     path::Path,
 };
 
@@ -42,7 +42,7 @@ impl DtaType {
             DeclaredType::Numeric | DeclaredType::Other(_) => Self::Double,
             DeclaredType::Character => {
                 // use declared DDI width, capped at STATA_STR_MAX
-                let width = (var.ddi_width as usize).min(STATA_STR_MAX).max(1);
+                let width = (var.ddi_width as usize).clamp(1, STATA_STR_MAX);
                 Self::Str(width as u16)
             }
         }
@@ -55,7 +55,6 @@ impl DtaType {
             Self::Str(n) => n,
         }
     }
-
 }
 
 pub struct DtaOutput {
@@ -108,9 +107,7 @@ impl DtaOutput {
                     DtaType::Double => {
                         let val: f64 = match cell {
                             CellValue::Missing => STATA_SYSMIS,
-                            CellValue::Text(s) => {
-                                s.trim().parse::<f64>().unwrap_or(STATA_SYSMIS)
-                            }
+                            CellValue::Text(s) => s.trim().parse::<f64>().unwrap_or(STATA_SYSMIS),
                         };
                         self.rows.extend_from_slice(&val.to_le_bytes());
                     }
@@ -296,7 +293,8 @@ impl DtaOutput {
         w.flush().map_err(|e| e.to_string())?;
 
         // Patch the map offsets
-        w.seek(SeekFrom::Start(map_pos + 5)).map_err(|e| e.to_string())?;
+        w.seek(SeekFrom::Start(map_pos + 5))
+            .map_err(|e| e.to_string())?;
         for val in &map_offsets {
             w.write_all(&val.to_le_bytes()).map_err(|e| e.to_string())?;
         }
@@ -305,7 +303,7 @@ impl DtaOutput {
         w.flush().map_err(|e| e.to_string())?;
 
         // suppress unused-variable warnings
-        let _ = i8le!(0u8);
+        i8le!(0u8);
 
         Ok(())
     }

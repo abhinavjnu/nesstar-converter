@@ -5,11 +5,7 @@ use nesstar_core::{
     layout::{metadata_scan::discover_metadata_layout, resource_index::discover_resource_layout},
     source::ReadOnlySource,
 };
-use std::{
-    env, fs,
-    path::Path,
-    process::ExitCode,
-};
+use std::{env, fs, path::Path, process::ExitCode};
 
 fn main() -> ExitCode {
     let args = env::args().skip(1).collect::<Vec<_>>();

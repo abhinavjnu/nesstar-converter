@@ -61,10 +61,9 @@ pub fn parse_ddi_auto(
                         .and_then(|e| e.to_str())
                         .map(|e| e.eq_ignore_ascii_case("xml"))
                         .unwrap_or(false)
+                    && let Ok(meta) = parse_ddi(&p)
                 {
-                    if let Ok(meta) = parse_ddi(&p) {
-                        return Ok(meta);
-                    }
+                    return Ok(meta);
                 }
             }
         }

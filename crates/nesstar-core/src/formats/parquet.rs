@@ -7,10 +7,7 @@ pub use inner::ParquetOutput;
 mod inner {
     use std::{fs::File, path::Path, sync::Arc};
 
-    use arrow_array::{
-        Float64Array, RecordBatch as ArrowBatch, StringArray,
-        array::ArrayRef,
-    };
+    use arrow_array::{Float64Array, RecordBatch as ArrowBatch, StringArray, array::ArrayRef};
     use arrow_schema::{DataType, Field, Schema};
     use parquet::{arrow::ArrowWriter, file::properties::WriterProperties};
 
@@ -35,18 +32,12 @@ mod inner {
     }
 
     impl ParquetOutput {
-        pub fn create(
-            path: &Path,
-            variables: &[VariableDefinition],
-        ) -> Result<Self, NesstarError> {
+        pub fn create(path: &Path, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
             let fields: Vec<Field> = variables.iter().map(field_for).collect();
             let schema = Arc::new(Schema::new(fields));
 
             let file = File::create(path).map_err(|e| {
-                NesstarError::Unsupported(format!(
-                    "cannot create Parquet {}: {e}",
-                    path.display()
-                ))
+                NesstarError::Unsupported(format!("cannot create Parquet {}: {e}", path.display()))
             })?;
             let props = WriterProperties::builder().build();
             let writer = ArrowWriter::try_new(file, schema.clone(), Some(props))
@@ -93,8 +84,8 @@ mod inner {
                 })
                 .collect();
 
-            let arrow_batch = ArrowBatch::try_new(self.schema.clone(), columns)
-                .map_err(|e| e.to_string())?;
+            let arrow_batch =
+                ArrowBatch::try_new(self.schema.clone(), columns).map_err(|e| e.to_string())?;
             self.writer.write(&arrow_batch).map_err(|e| e.to_string())
         }
 

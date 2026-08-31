@@ -39,7 +39,12 @@ pub enum OutputFormat {
 impl OutputFormat {
     /// Infer format from a file extension. Falls back to CSV.
     pub fn from_extension(path: &Path) -> Self {
-        match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        match path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(str::to_ascii_lowercase)
+            .as_deref()
+        {
             Some("txt") | Some("tsv") => Self::Tsv,
             Some("parquet") => Self::Parquet,
             Some("dta") => Self::Dta,
@@ -114,14 +119,18 @@ pub fn convert_csv(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|error| PipelineError::Failed(error.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|error| PipelineError::Failed(error.to_string()))?;
     let source = ReadOnlySource::open(source_path)
         .map_err(|error| PipelineError::Failed(error.to_string()))?;
     let block = metadata
         .blocks
         .iter()
         .find(|b| {
-            let output_stem = output_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let output_stem = output_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
             sanitize_name(&b.name) == sanitize_name(output_stem)
         })
         .or_else(|| metadata.blocks.first())
@@ -180,13 +189,37 @@ pub fn convert(
     let fmt = OutputFormat::from_extension(output_path);
 
     match fmt {
-        OutputFormat::Csv => convert_csv(source_path, ddi_path, output_path, batch_size, keep_going),
-        OutputFormat::Tsv => convert_with_tsv(source_path, ddi_path, output_path, batch_size, keep_going),
-        OutputFormat::Dta => convert_with_dta(source_path, ddi_path, output_path, batch_size, keep_going),
-        OutputFormat::Spss => convert_with_spss(source_path, ddi_path, output_path, batch_size, keep_going),
-        OutputFormat::Json => convert_with_json(source_path, ddi_path, output_path, JsonMode::Array, batch_size, keep_going),
-        OutputFormat::Jsonl => convert_with_json(source_path, ddi_path, output_path, JsonMode::Lines, batch_size, keep_going),
-        OutputFormat::Fwf => convert_with_fwf(source_path, ddi_path, output_path, batch_size, keep_going),
+        OutputFormat::Csv => {
+            convert_csv(source_path, ddi_path, output_path, batch_size, keep_going)
+        }
+        OutputFormat::Tsv => {
+            convert_with_tsv(source_path, ddi_path, output_path, batch_size, keep_going)
+        }
+        OutputFormat::Dta => {
+            convert_with_dta(source_path, ddi_path, output_path, batch_size, keep_going)
+        }
+        OutputFormat::Spss => {
+            convert_with_spss(source_path, ddi_path, output_path, batch_size, keep_going)
+        }
+        OutputFormat::Json => convert_with_json(
+            source_path,
+            ddi_path,
+            output_path,
+            JsonMode::Array,
+            batch_size,
+            keep_going,
+        ),
+        OutputFormat::Jsonl => convert_with_json(
+            source_path,
+            ddi_path,
+            output_path,
+            JsonMode::Lines,
+            batch_size,
+            keep_going,
+        ),
+        OutputFormat::Fwf => {
+            convert_with_fwf(source_path, ddi_path, output_path, batch_size, keep_going)
+        }
         OutputFormat::Parquet => {
             #[cfg(feature = "parquet")]
             {
@@ -212,23 +245,28 @@ fn convert_with_tsv(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
     ensure_parent(&partial)?;
 
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
         let headers = col_headers_resource(&layout);
-        let mut out = TsvOutput::create(&partial, &headers).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = TsvOutput::create(&partial, &headers)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
         .and_then(|_| out.finish().map_err(DecodeError::Writer))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let headers = col_headers_metadata(&layout);
-        let mut out = TsvOutput::create(&partial, &headers).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = TsvOutput::create(&partial, &headers)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
@@ -247,26 +285,32 @@ fn convert_with_dta(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
     ensure_parent(&partial)?;
 
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
         let headers = col_headers_resource(&layout);
-        let vars: Vec<VariableDefinition> = layout.columns.iter().map(|c| c.variable.clone()).collect();
-        let mut out = DtaOutput::create(&partial, &headers, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let vars: Vec<VariableDefinition> =
+            layout.columns.iter().map(|c| c.variable.clone()).collect();
+        let mut out = DtaOutput::create(&partial, &headers, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b, &vars).map_err(DecodeError::Writer)
         })
         .and_then(|_| out.finish(&headers, &vars).map_err(DecodeError::Writer))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let ordered = layout.columns_in_ddi_order();
         let headers: Vec<String> = ordered.iter().map(|c| c.variable.name.clone()).collect();
         let vars: Vec<VariableDefinition> = ordered.iter().map(|c| c.variable.clone()).collect();
-        let mut out = DtaOutput::create(&partial, &headers, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = DtaOutput::create(&partial, &headers, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b, &vars).map_err(DecodeError::Writer)
         })
@@ -285,24 +329,30 @@ fn convert_with_spss(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
     ensure_parent(&partial)?;
 
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
-        let vars: Vec<VariableDefinition> = layout.columns.iter().map(|c| c.variable.clone()).collect();
-        let mut out = SpssOutput::create(&partial, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let vars: Vec<VariableDefinition> =
+            layout.columns.iter().map(|c| c.variable.clone()).collect();
+        let mut out = SpssOutput::create(&partial, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
         .and_then(|_| out.finish(&vars).map_err(DecodeError::Writer))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let ordered = layout.columns_in_ddi_order();
         let vars: Vec<VariableDefinition> = ordered.iter().map(|c| c.variable.clone()).collect();
-        let mut out = SpssOutput::create(&partial, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = SpssOutput::create(&partial, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
@@ -322,25 +372,32 @@ fn convert_with_json(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
     ensure_parent(&partial)?;
 
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
         let headers = col_headers_resource(&layout);
-        let mut out = JsonOutput::create(&partial, &headers, mode).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = JsonOutput::create(&partial, &headers, mode)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
-            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+            out.write_batch(&b)
+                .map_err(|e| DecodeError::Writer(e.to_string()))
         })
         .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let headers = col_headers_metadata(&layout);
-        let mut out = JsonOutput::create(&partial, &headers, mode).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = JsonOutput::create(&partial, &headers, mode)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
-            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+            out.write_batch(&b)
+                .map_err(|e| DecodeError::Writer(e.to_string()))
         })
         .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
     };
@@ -357,27 +414,42 @@ fn convert_with_fwf(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
     ensure_parent(&partial)?;
 
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
         let headers = col_headers_resource(&layout);
-        let ddi_widths: Vec<u32> = layout.columns.iter().map(|c| c.variable.ddi_width).collect();
-        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let ddi_widths: Vec<u32> = layout
+            .columns
+            .iter()
+            .map(|c| c.variable.ddi_width)
+            .collect();
+        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
-            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+            out.write_batch(&b)
+                .map_err(|e| DecodeError::Writer(e.to_string()))
         })
         .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let headers = col_headers_metadata(&layout);
-        let ddi_widths: Vec<u32> = layout.columns_in_ddi_order().into_iter().map(|c| c.variable.ddi_width).collect();
-        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let ddi_widths: Vec<u32> = layout
+            .columns_in_ddi_order()
+            .into_iter()
+            .map(|c| c.variable.ddi_width)
+            .collect();
+        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
-            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+            out.write_batch(&b)
+                .map_err(|e| DecodeError::Writer(e.to_string()))
         })
         .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
     };
@@ -396,21 +468,27 @@ fn convert_with_parquet(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
-    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path)
+        .map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source =
+        ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
-        let vars: Vec<VariableDefinition> = layout.columns.iter().map(|c| c.variable.clone()).collect();
-        let mut out = ParquetOutput::create(output_path, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let vars: Vec<VariableDefinition> =
+            layout.columns.iter().map(|c| c.variable.clone()).collect();
+        let mut out = ParquetOutput::create(output_path, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
         .and_then(|_| out.finish().map_err(DecodeError::Writer))
     } else {
-        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         let ordered = layout.columns_in_ddi_order();
         let vars: Vec<VariableDefinition> = ordered.iter().map(|c| c.variable.clone()).collect();
-        let mut out = ParquetOutput::create(output_path, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let mut out = ParquetOutput::create(output_path, &vars)
+            .map_err(|e| PipelineError::Failed(e.to_string()))?;
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b).map_err(DecodeError::Writer)
         })
@@ -429,7 +507,10 @@ fn pick_block<'m>(
         .blocks
         .iter()
         .find(|b| {
-            let stem = output_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let stem = output_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
             sanitize_name(&b.name) == sanitize_name(stem)
         })
         .or_else(|| metadata.blocks.first())
@@ -444,11 +525,19 @@ fn ensure_parent(path: &Path) -> Result<(), PipelineError> {
 }
 
 fn col_headers_resource(layout: &crate::layout::resource_index::ResourceLayout) -> Vec<String> {
-    layout.columns.iter().map(|c| c.variable.name.clone()).collect()
+    layout
+        .columns
+        .iter()
+        .map(|c| c.variable.name.clone())
+        .collect()
 }
 
 fn col_headers_metadata(layout: &crate::layout::metadata_scan::MetadataLayout) -> Vec<String> {
-    layout.columns_in_ddi_order().into_iter().map(|c| c.variable.name.clone()).collect()
+    layout
+        .columns_in_ddi_order()
+        .into_iter()
+        .map(|c| c.variable.name.clone())
+        .collect()
 }
 
 fn finalize(
@@ -457,7 +546,9 @@ fn finalize(
     output_path: &Path,
 ) -> Result<(), PipelineError> {
     match result {
-        Ok(()) => fs::rename(partial, output_path).map_err(|e| PipelineError::Failed(e.to_string())),
+        Ok(()) => {
+            fs::rename(partial, output_path).map_err(|e| PipelineError::Failed(e.to_string()))
+        }
         Err(e) => {
             let _ = fs::remove_file(partial);
             Err(PipelineError::Failed(e.to_string()))

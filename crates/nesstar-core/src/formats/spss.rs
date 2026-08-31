@@ -19,7 +19,7 @@ use crate::{
 };
 
 /// SPSS system-missing value for numeric variables.
-const SPSS_SYSMIS: f64 = -1.797693134862315708145274237317e+308; // LOWEST
+const SPSS_SYSMIS: f64 = -1.797_693_134_862_315_7e308; // LOWEST
 
 /// Maximum variable name length in SPSS (8 ASCII chars).
 const SPSS_NAME_LEN: usize = 8;
@@ -31,7 +31,10 @@ const SPSS_NAME_LEN: usize = 8;
 enum SpssType {
     Numeric,
     /// Number of bytes (padded to multiple of 8).
-    Str { width: usize, n_segments: usize },
+    Str {
+        width: usize,
+        n_segments: usize,
+    },
 }
 
 impl SpssType {
@@ -39,8 +42,8 @@ impl SpssType {
         match var.declared_type {
             DeclaredType::Numeric | DeclaredType::Other(_) => Self::Numeric,
             DeclaredType::Character => {
-                let width = (var.ddi_width as usize).min(255).max(1);
-                let n_segments = (width + 7) / 8;
+                let width = (var.ddi_width as usize).clamp(1, 255);
+                let n_segments = width.div_ceil(8);
                 Self::Str { width, n_segments }
             }
         }
@@ -86,10 +89,7 @@ pub struct SpssOutput {
 }
 
 impl SpssOutput {
-    pub fn create(
-        path: &Path,
-        variables: &[VariableDefinition],
-    ) -> Result<Self, NesstarError> {
+    pub fn create(path: &Path, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
         let file = File::create(path).map_err(|e| {
             NesstarError::Unsupported(format!("cannot create SAV {}: {e}", path.display()))
         })?;
@@ -112,9 +112,7 @@ impl SpssOutput {
                     SpssType::Numeric => {
                         let val: f64 = match cell {
                             CellValue::Missing => SPSS_SYSMIS,
-                            CellValue::Text(s) => {
-                                s.trim().parse::<f64>().unwrap_or(SPSS_SYSMIS)
-                            }
+                            CellValue::Text(s) => s.trim().parse::<f64>().unwrap_or(SPSS_SYSMIS),
                         };
                         self.rows.extend_from_slice(&val.to_le_bytes());
                     }
@@ -164,11 +162,7 @@ impl SpssOutput {
         // layout code = 2 (little-endian)
         i32le!(2i32);
         // number of "observation variables" (each string segment counts)
-        let obs_vars: i32 = self
-            .types
-            .iter()
-            .map(|t| t.n_cells() as i32)
-            .sum();
+        let obs_vars: i32 = self.types.iter().map(|t| t.n_cells() as i32).sum();
         i32le!(obs_vars);
         // compression: 0 = none
         i32le!(0i32);
@@ -213,7 +207,7 @@ impl SpssOutput {
                 SpssType::Numeric => (1 << 16) | (8 << 8) | 2, // F8.2
                 SpssType::Str { width, .. } => {
                     let w = (*width).min(255) as i32;
-                    (5 << 16) | (w << 8) | 0 // A<width>
+                    (5 << 16) | (w << 8) // A<width>
                 }
             };
             i32le!(print_fmt);
@@ -266,8 +260,8 @@ impl SpssOutput {
         i32le!(4i32); // subtype 4
         i32le!(8i32); // element size: 8
         i32le!(3i32); // 3 elements
-        f64le!(SPSS_SYSMIS);           // SYSMIS
-        f64le!(f64::MAX);              // HIGHEST
+        f64le!(SPSS_SYSMIS); // SYSMIS
+        f64le!(f64::MAX); // HIGHEST
         {
             // LOWEST: one ULP above -f64::MAX (matches SPSS convention)
             let lowest_bits: u64 = (-f64::MAX).to_bits() - 1;
@@ -294,7 +288,7 @@ impl SpssOutput {
             let map_bytes = name_map.as_bytes();
             i32le!(7i32);
             i32le!(13i32); // subtype 13
-            i32le!(1i32);  // element size: 1 byte
+            i32le!(1i32); // element size: 1 byte
             i32le!(map_bytes.len() as i32);
             w_all!(map_bytes);
         }

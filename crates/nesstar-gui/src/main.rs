@@ -7,7 +7,6 @@ use std::{
 
 use eframe::egui;
 use nesstar_core::pipeline::OutputFormat;
-use webbrowser;
 
 const ALL_FORMATS: &[OutputFormat] = &[
     OutputFormat::Csv,
@@ -138,7 +137,10 @@ impl ConverterApp {
         }
         let input_path = Path::new(&self.input);
         if let Some(parent) = input_path.parent() {
-            let stem = input_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let stem = input_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
             let candidates = [
                 parent.join(format!("{stem}.ddi.xml")),
                 parent.join(format!("{stem}.xml")),
@@ -161,7 +163,11 @@ impl ConverterApp {
         if self.ddi.is_empty() {
             self.auto_detect_ddi();
         }
-        let ddi_to_pass = if self.ddi.is_empty() { "auto" } else { &self.ddi };
+        let ddi_to_pass = if self.ddi.is_empty() {
+            "auto"
+        } else {
+            &self.ddi
+        };
 
         match env::current_exe().and_then(|exe| {
             Command::new(exe)
@@ -223,7 +229,8 @@ impl ConverterApp {
 
     fn run_batch(&mut self) {
         if self.batch_files.is_empty() || self.batch_out_dir.is_empty() {
-            self.batch_status = "Select input directory with .Nesstar files and an output folder.".into();
+            self.batch_status =
+                "Select input directory with .Nesstar files and an output folder.".into();
             return;
         }
         let out_dir = PathBuf::from(&self.batch_out_dir);
@@ -233,14 +240,22 @@ impl ConverterApp {
 
         for (idx, nesstar) in self.batch_files.iter().enumerate() {
             self.batch_progress = (idx + 1, total);
-            let stem = nesstar.file_stem().and_then(|s| s.to_str()).unwrap_or("survey");
+            let stem = nesstar
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("survey");
             let out_file = out_dir.join(format!("{stem}.{}", self.format.extension()));
 
-            if let Ok(()) = nesstar_core::pipeline::convert(nesstar, "auto", &out_file, 10_000, || true) {
+            if let Ok(()) =
+                nesstar_core::pipeline::convert(nesstar, "auto", &out_file, 10_000, || true)
+            {
                 success += 1;
             }
         }
-        self.batch_status = format!("✓ Batch complete! Successfully converted {success}/{total} files to {}.", self.format.label());
+        self.batch_status = format!(
+            "✓ Batch complete! Successfully converted {success}/{total} files to {}.",
+            self.format.label()
+        );
     }
 
     fn load_preview(&mut self) {
@@ -256,7 +271,11 @@ impl ConverterApp {
         if self.ddi.is_empty() {
             self.auto_detect_ddi();
         }
-        let ddi_arg = if self.ddi.is_empty() { "auto" } else { &self.ddi };
+        let ddi_arg = if self.ddi.is_empty() {
+            "auto"
+        } else {
+            &self.ddi
+        };
 
         // Quick memory conversion of top 50 records to temp CSV
         let tmp_csv = std::env::temp_dir().join(format!("nesstar_prev_{}.csv", std::process::id()));
@@ -267,7 +286,8 @@ impl ConverterApp {
                 if let Ok(content) = fs::read_to_string(&tmp_csv) {
                     let mut lines = content.lines();
                     if let Some(header_line) = lines.next() {
-                        self.preview_headers = header_line.split(',').map(|s| s.to_string()).collect();
+                        self.preview_headers =
+                            header_line.split(',').map(|s| s.to_string()).collect();
                     }
                     for line in lines.take(50) {
                         let row: Vec<String> = line.split(',').map(|s| s.to_string()).collect();
@@ -329,23 +349,27 @@ impl eframe::App for ConverterApp {
                     ui.small("SUPPORT THE PROJECT");
                     ui.add_space(8.0);
 
-                    if ui.add_sized([150.0, 28.0], egui::Button::new("Sponsor on GitHub")).clicked() {
+                    if ui
+                        .add_sized([150.0, 28.0], egui::Button::new("Sponsor on GitHub"))
+                        .clicked()
+                    {
                         let _ = webbrowser::open("https://github.com/sponsors/abhinavjnu");
                     }
                     ui.add_space(6.0);
-                    if ui.add_sized([150.0, 28.0], egui::Button::new("Buy Me a Coffee")).clicked() {
+                    if ui
+                        .add_sized([150.0, 28.0], egui::Button::new("Buy Me a Coffee"))
+                        .clicked()
+                    {
                         let _ = webbrowser::open("https://buymeacoffee.com/abhinavjnu");
                     }
                 });
             });
 
         // ── Main Content Workspace ────────────────────────────────────────
-        egui::CentralPanel::default().show(context, |ui| {
-            match self.active_tab {
-                GuiTab::Single => self.render_single_tab(ui),
-                GuiTab::Batch => self.render_batch_tab(ui),
-                GuiTab::Preview => self.render_preview_tab(ui),
-            }
+        egui::CentralPanel::default().show(context, |ui| match self.active_tab {
+            GuiTab::Single => self.render_single_tab(ui),
+            GuiTab::Batch => self.render_batch_tab(ui),
+            GuiTab::Preview => self.render_preview_tab(ui),
         });
     }
 }
@@ -360,18 +384,23 @@ impl ConverterApp {
         ui.horizontal(|ui| {
             ui.label("Nesstar file:");
             ui.text_edit_singleline(&mut self.input);
-            if ui.button("Browse…").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
+            if ui.button("Browse…").clicked()
+                && let Some(path) = rfd::FileDialog::new()
                     .add_filter("Nesstar Survey", &["Nesstar", "nesstar"])
                     .pick_file()
-                {
-                    self.input = path.display().to_string();
-                    self.auto_detect_ddi();
-                    if self.output.is_empty() {
-                        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("output");
-                        if let Some(parent) = path.parent() {
-                            self.output = parent.join(format!("{stem}.{}", self.format.extension())).display().to_string();
-                        }
+            {
+                self.input = path.display().to_string();
+                self.auto_detect_ddi();
+                if self.output.is_empty() {
+                    let stem = path
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("output");
+                    if let Some(parent) = path.parent() {
+                        self.output = parent
+                            .join(format!("{stem}.{}", self.format.extension()))
+                            .display()
+                            .to_string();
                     }
                 }
             }
@@ -381,13 +410,12 @@ impl ConverterApp {
         ui.horizontal(|ui| {
             ui.label("DDI XML (auto):");
             ui.text_edit_singleline(&mut self.ddi);
-            if ui.button("Browse…").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
+            if ui.button("Browse…").clicked()
+                && let Some(path) = rfd::FileDialog::new()
                     .add_filter("DDI Metadata", &["xml", "ddi"])
                     .pick_file()
-                {
-                    self.ddi = path.display().to_string();
-                }
+            {
+                self.ddi = path.display().to_string();
             }
         });
         ui.add_space(10.0);
@@ -436,7 +464,10 @@ impl ConverterApp {
         let busy = self.worker.is_some();
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(!busy, egui::Button::new(format!("Convert to {}", self.format.label())))
+                .add_enabled(
+                    !busy,
+                    egui::Button::new(format!("Convert to {}", self.format.label())),
+                )
                 .clicked()
             {
                 self.start_single();
@@ -460,21 +491,21 @@ impl ConverterApp {
         ui.horizontal(|ui| {
             ui.label("Input Directory: ");
             ui.text_edit_singleline(&mut self.batch_in_dir);
-            if ui.button("Select Folder…").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.batch_in_dir = path.display().to_string();
-                    self.scan_batch_dir();
-                }
+            if ui.button("Select Folder…").clicked()
+                && let Some(path) = rfd::FileDialog::new().pick_folder()
+            {
+                self.batch_in_dir = path.display().to_string();
+                self.scan_batch_dir();
             }
         });
 
         ui.horizontal(|ui| {
             ui.label("Output Directory:");
             ui.text_edit_singleline(&mut self.batch_out_dir);
-            if ui.button("Select Folder…").clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.batch_out_dir = path.display().to_string();
-                }
+            if ui.button("Select Folder…").clicked()
+                && let Some(path) = rfd::FileDialog::new().pick_folder()
+            {
+                self.batch_out_dir = path.display().to_string();
             }
         });
         ui.add_space(10.0);
@@ -494,7 +525,10 @@ impl ConverterApp {
         ui.separator();
         ui.add_space(12.0);
 
-        if ui.button(format!("Convert All ({}) Files", self.batch_files.len())).clicked() {
+        if ui
+            .button(format!("Convert All ({}) Files", self.batch_files.len()))
+            .clicked()
+        {
             self.run_batch();
         }
 
@@ -524,7 +558,11 @@ impl ConverterApp {
 
         if !self.preview_headers.is_empty() {
             ui.add_space(8.0);
-            ui.label(format!("Columns: {} | Previewing first {} rows", self.preview_headers.len(), self.preview_rows.len()));
+            ui.label(format!(
+                "Columns: {} | Previewing first {} rows",
+                self.preview_headers.len(),
+                self.preview_rows.len()
+            ));
             ui.add_space(6.0);
 
             egui::ScrollArea::both().max_height(400.0).show(ui, |ui| {

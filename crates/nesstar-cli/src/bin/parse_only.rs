@@ -11,7 +11,12 @@ fn main() -> ExitCode {
             println!("Successfully parsed DDI XML: {}", args[0]);
             println!("Found {} blocks", metadata.blocks.len());
             for block in metadata.blocks {
-                println!("  Block: ID={}, Name={}, Variables={}", block.file_id, block.name, block.variables.len());
+                println!(
+                    "  Block: ID={}, Name={}, Variables={}",
+                    block.file_id,
+                    block.name,
+                    block.variables.len()
+                );
             }
             ExitCode::SUCCESS
         }

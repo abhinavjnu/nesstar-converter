@@ -3,9 +3,9 @@
 use std::path::{Path, PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::fs::File;
-#[cfg(not(target_arch = "wasm32"))]
 use memmap2::{Mmap, MmapOptions};
+#[cfg(not(target_arch = "wasm32"))]
+use std::fs::File;
 
 use thiserror::Error;
 
@@ -63,6 +63,21 @@ impl ReadOnlySource {
         let source = Self {
             path,
             backing: SourceBacking::Mmap { _file: file, mmap },
+        };
+        source.validate_magic()?;
+        Ok(source)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn open(path: impl AsRef<Path>) -> Result<Self, SourceError> {
+        let path = path.as_ref().to_path_buf();
+        let bytes = std::fs::read(&path).map_err(|error| SourceError::Invalid {
+            path: path.clone(),
+            reason: format!("cannot open: {error}"),
+        })?;
+        let source = Self {
+            path,
+            backing: SourceBacking::Bytes(bytes),
         };
         source.validate_magic()?;
         Ok(source)
