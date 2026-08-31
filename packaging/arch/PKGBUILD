@@ -1,0 +1,18 @@
+# Maintainer: Abhinav Kumar <abhinavjnu@github.com>
+pkgname=nesstar-converter-bin
+pkgver=1.0.7
+pkgrel=1
+pkgdesc="High-performance parser and converter for proprietary Nesstar survey files"
+arch=('x86_64')
+url="https://github.com/abhinavjnu/nesstar-converter"
+license=('MIT')
+depends=('gtk3' 'libxcb')
+provides=('nesstar-converter' 'nesstar-gui' 'nesstar-cli')
+conflicts=('nesstar-converter')
+source_x86_64=("https://github.com/abhinavjnu/nesstar-converter/releases/download/v${pkgver}/NesstarConverter-Linux-x86_64-Rust.tar.gz")
+sha256sums_x86_64=('SKIP')
+
+package() {
+    install -Dm755 "${srcdir}/NesstarConverter" "${pkgdir}/usr/bin/nesstar-converter"
+    ln -sf /usr/bin/nesstar-converter "${pkgdir}/usr/bin/nesstar-gui"
+}

@@ -105,6 +105,15 @@ jobs:
           dpkg-deb --build deb "../nesstar-converter_${VERSION}_amd64.deb"
           rm -rf deb
 
+          # Also package as a universal AppImage
+          cd ..
+          ./scripts/build_appimage.sh
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool --appimage-extract
+          ./squashfs-root/AppRun dist/NesstarConverter.AppDir "NesstarConverter-x86_64.AppImage"
+          rm -rf squashfs-root appimagetool
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
@@ -112,6 +121,7 @@ jobs:
           path: |
             NesstarConverter-Linux-x86_64-Rust.tar.gz
             nesstar-converter_*.deb
+            NesstarConverter-x86_64.AppImage
 
   build-windows:
     runs-on: windows-latest
@@ -164,6 +174,7 @@ jobs:
             NesstarConverter-macOS-Rust.zip
             NesstarConverter-Linux-x86_64-Rust.tar.gz
             nesstar-converter_*.deb
+            NesstarConverter-x86_64.AppImage
             NesstarConverter-Windows-x86_64-Rust.zip
           generate_release_notes: true
         env:

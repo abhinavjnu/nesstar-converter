@@ -31,9 +31,10 @@ Standalone native desktop application (~16 MB, zero external runtime dependencie
 
 | Platform | Package | Installation |
 |---|---|---|
+| Linux (Universal AppImage) | [NesstarConverter-x86_64.AppImage](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | `chmod +x` and run on any Linux distribution (Ubuntu, Fedora, Arch) |
+| Linux (Debian / Ubuntu) | [nesstar-converter.deb](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Install via `sudo dpkg -i nesstar-converter_*.deb` |
 | Windows (x86_64) | [NesstarConverter-Windows.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Extract archive and run `NesstarConverter.exe` |
-| Linux (x86_64) | [nesstar-converter.deb](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Install `.deb` package or run standalone binary |
-| macOS (Apple Silicon / Intel) | [NesstarConverter-macOS.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Move `NesstarConverter.app` to Applications |
+| macOS (Universal) | [NesstarConverter-macOS.zip](https://github.com/abhinavjnu/nesstar-converter/releases/latest) | Move `NesstarConverter.app` to Applications |
 
 ---
 
