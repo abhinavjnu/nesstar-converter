@@ -13,6 +13,8 @@ use crate::{
     formats::{
         csv::CsvOutput,
         dta::DtaOutput,
+        fwf::FixedWidthOutput,
+        json::{JsonMode, JsonOutput},
         spss::SpssOutput,
         tsv::TsvOutput,
     },
@@ -29,16 +31,22 @@ pub enum OutputFormat {
     Parquet,
     Dta,
     Spss,
+    Json,
+    Jsonl,
+    Fwf,
 }
 
 impl OutputFormat {
     /// Infer format from a file extension. Falls back to CSV.
     pub fn from_extension(path: &Path) -> Self {
         match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
-            Some("txt") => Self::Tsv,
+            Some("txt") | Some("tsv") => Self::Tsv,
             Some("parquet") => Self::Parquet,
             Some("dta") => Self::Dta,
             Some("sav") => Self::Spss,
+            Some("json") => Self::Json,
+            Some("jsonl") | Some("ndjson") => Self::Jsonl,
+            Some("fwf") => Self::Fwf,
             _ => Self::Csv,
         }
     }
@@ -47,10 +55,13 @@ impl OutputFormat {
     pub fn label(self) -> &'static str {
         match self {
             Self::Csv => "CSV",
-            Self::Tsv => "TXT (Tab-separated)",
+            Self::Tsv => "TSV (Tab-separated)",
             Self::Parquet => "Parquet",
             Self::Dta => "Stata (.dta)",
             Self::Spss => "SPSS (.sav)",
+            Self::Json => "JSON (.json)",
+            Self::Jsonl => "JSON Lines (.jsonl)",
+            Self::Fwf => "Fixed-Width (.fwf)",
         }
     }
 
@@ -58,10 +69,13 @@ impl OutputFormat {
     pub fn extension(self) -> &'static str {
         match self {
             Self::Csv => "csv",
-            Self::Tsv => "txt",
+            Self::Tsv => "tsv",
             Self::Parquet => "parquet",
             Self::Dta => "dta",
             Self::Spss => "sav",
+            Self::Json => "json",
+            Self::Jsonl => "jsonl",
+            Self::Fwf => "fwf",
         }
     }
 }
@@ -154,7 +168,7 @@ pub fn convert_csv(
 }
 
 /// Convert a Nesstar dataset to any supported format, detected from the output
-/// file extension. Supported extensions: `.csv`, `.txt`, `.parquet`, `.dta`, `.sav`.
+/// file extension. Supported extensions: `.csv`, `.tsv`, `.parquet`, `.dta`, `.sav`, `.json`, `.jsonl`, `.fwf`.
 pub fn convert(
     source_path: impl AsRef<Path>,
     ddi_path: impl AsRef<Path>,
@@ -170,6 +184,9 @@ pub fn convert(
         OutputFormat::Tsv => convert_with_tsv(source_path, ddi_path, output_path, batch_size, keep_going),
         OutputFormat::Dta => convert_with_dta(source_path, ddi_path, output_path, batch_size, keep_going),
         OutputFormat::Spss => convert_with_spss(source_path, ddi_path, output_path, batch_size, keep_going),
+        OutputFormat::Json => convert_with_json(source_path, ddi_path, output_path, JsonMode::Array, batch_size, keep_going),
+        OutputFormat::Jsonl => convert_with_json(source_path, ddi_path, output_path, JsonMode::Lines, batch_size, keep_going),
+        OutputFormat::Fwf => convert_with_fwf(source_path, ddi_path, output_path, batch_size, keep_going),
         OutputFormat::Parquet => {
             #[cfg(feature = "parquet")]
             {
@@ -294,6 +311,79 @@ fn convert_with_spss(
     finalize(result, &partial, output_path)
 }
 
+fn convert_with_json(
+    source_path: impl AsRef<Path>,
+    ddi_path: impl AsRef<Path>,
+    output_path: &Path,
+    mode: JsonMode,
+    batch_size: usize,
+    mut keep_going: impl FnMut() -> bool,
+) -> Result<(), PipelineError> {
+    if output_path.exists() {
+        return Err(PipelineError::OutputExists(output_path.into()));
+    }
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let block = pick_block(&metadata, output_path)?;
+    let partial = partial_path(output_path);
+    ensure_parent(&partial)?;
+
+    let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
+        let headers = col_headers_resource(&layout);
+        let mut out = JsonOutput::create(&partial, &headers, mode).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
+            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+        })
+        .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
+    } else {
+        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let headers = col_headers_metadata(&layout);
+        let mut out = JsonOutput::create(&partial, &headers, mode).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
+            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+        })
+        .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
+    };
+    finalize(result, &partial, output_path)
+}
+
+fn convert_with_fwf(
+    source_path: impl AsRef<Path>,
+    ddi_path: impl AsRef<Path>,
+    output_path: &Path,
+    batch_size: usize,
+    mut keep_going: impl FnMut() -> bool,
+) -> Result<(), PipelineError> {
+    if output_path.exists() {
+        return Err(PipelineError::OutputExists(output_path.into()));
+    }
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let block = pick_block(&metadata, output_path)?;
+    let partial = partial_path(output_path);
+    ensure_parent(&partial)?;
+
+    let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
+        let headers = col_headers_resource(&layout);
+        let ddi_widths: Vec<u32> = layout.columns.iter().map(|c| c.variable.ddi_width).collect();
+        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
+            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+        })
+        .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
+    } else {
+        let layout = discover_metadata_layout(source.bytes(), block).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        let headers = col_headers_metadata(&layout);
+        let ddi_widths: Vec<u32> = layout.columns_in_ddi_order().into_iter().map(|c| c.variable.ddi_width).collect();
+        let mut out = FixedWidthOutput::create(&partial, &headers, &ddi_widths).map_err(|e| PipelineError::Failed(e.to_string()))?;
+        decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
+            out.write_batch(&b).map_err(|e| DecodeError::Writer(e.to_string()))
+        })
+        .and_then(|_| out.finish().map_err(|e| DecodeError::Writer(e.to_string())))
+    };
+    finalize(result, &partial, output_path)
+}
+
 #[cfg(feature = "parquet")]
 fn convert_with_parquet(
     source_path: impl AsRef<Path>,
@@ -309,7 +399,6 @@ fn convert_with_parquet(
     let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
-    // Parquet writes directly (no partial rename needed — ArrowWriter handles atomicity)
     let result = if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
         let vars: Vec<VariableDefinition> = layout.columns.iter().map(|c| c.variable.clone()).collect();
         let mut out = ParquetOutput::create(output_path, &vars).map_err(|e| PipelineError::Failed(e.to_string()))?;
@@ -433,6 +522,68 @@ mod tests {
         let actual = fs::read_to_string(&output).unwrap();
         assert!(actual.starts_with("ASCII\tUTF8\tNIBBLE"));
         assert!(actual.contains("A\tcafé\t0\t100"));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn converts_resource_fixture_to_json() {
+        let directory =
+            std::env::temp_dir().join(format!("nesstar-pipeline-json-{}", std::process::id()));
+        let output = directory.join("resource.json");
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        convert(
+            fixture("resource-index.Nesstar"),
+            fixture("resource-index.ddi.xml"),
+            &output,
+            2,
+            || true,
+        )
+        .unwrap();
+        let actual = fs::read_to_string(&output).unwrap();
+        assert!(actual.starts_with('['));
+        assert!(actual.ends_with("]\n"));
+        assert!(actual.contains("\"ASCII\":\"A\""));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn converts_resource_fixture_to_jsonl() {
+        let directory =
+            std::env::temp_dir().join(format!("nesstar-pipeline-jsonl-{}", std::process::id()));
+        let output = directory.join("resource.jsonl");
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        convert(
+            fixture("resource-index.Nesstar"),
+            fixture("resource-index.ddi.xml"),
+            &output,
+            2,
+            || true,
+        )
+        .unwrap();
+        let actual = fs::read_to_string(&output).unwrap();
+        assert!(actual.contains("{\"ASCII\":\"A\""));
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn converts_resource_fixture_to_fwf() {
+        let directory =
+            std::env::temp_dir().join(format!("nesstar-pipeline-fwf-{}", std::process::id()));
+        let output = directory.join("resource.fwf");
+        let _ = fs::remove_dir_all(&directory);
+        fs::create_dir_all(&directory).unwrap();
+        convert(
+            fixture("resource-index.Nesstar"),
+            fixture("resource-index.ddi.xml"),
+            &output,
+            2,
+            || true,
+        )
+        .unwrap();
+        let actual = fs::read_to_string(&output).unwrap();
+        assert!(actual.starts_with("ASCII"));
         fs::remove_dir_all(directory).unwrap();
     }
 

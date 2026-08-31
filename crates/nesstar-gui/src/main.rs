@@ -11,10 +11,13 @@ use webbrowser;
 
 const ALL_FORMATS: &[OutputFormat] = &[
     OutputFormat::Csv,
-    OutputFormat::Tsv,
     OutputFormat::Parquet,
     OutputFormat::Dta,
     OutputFormat::Spss,
+    OutputFormat::Jsonl,
+    OutputFormat::Json,
+    OutputFormat::Tsv,
+    OutputFormat::Fwf,
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
