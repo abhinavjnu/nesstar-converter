@@ -8,7 +8,7 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    ddi::parse_ddi,
+    ddi::parse_ddi_auto,
     decode::{DecodeError, decode_metadata_batches, decode_resource_batches},
     formats::{
         csv::CsvOutput,
@@ -100,7 +100,7 @@ pub fn convert_csv(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi(ddi_path).map_err(|error| PipelineError::Failed(error.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|error| PipelineError::Failed(error.to_string()))?;
     let source = ReadOnlySource::open(source_path)
         .map_err(|error| PipelineError::Failed(error.to_string()))?;
     let block = metadata
@@ -195,7 +195,7 @@ fn convert_with_tsv(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi(ddi_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
@@ -230,7 +230,7 @@ fn convert_with_dta(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi(ddi_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
@@ -268,7 +268,7 @@ fn convert_with_spss(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi(ddi_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     let partial = partial_path(output_path);
@@ -306,7 +306,7 @@ fn convert_with_parquet(
     if output_path.exists() {
         return Err(PipelineError::OutputExists(output_path.into()));
     }
-    let metadata = parse_ddi(ddi_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
+    let metadata = parse_ddi_auto(&ddi_path, &source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let source = ReadOnlySource::open(source_path).map_err(|e| PipelineError::Failed(e.to_string()))?;
     let block = pick_block(&metadata, output_path)?;
     // Parquet writes directly (no partial rename needed — ArrowWriter handles atomicity)

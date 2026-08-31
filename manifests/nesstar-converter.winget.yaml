@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.version.1.6.0.schema.json
+PackageIdentifier: AbhinavKumar.NesstarConverter
+PackageVersion: 1.0.7
+PackageName: Nesstar Converter
+Publisher: Abhinav Kumar
+PublisherUrl: https://github.com/abhinavjnu
+Author: Abhinav Kumar
+License: MIT
+LicenseUrl: https://github.com/abhinavjnu/nesstar-converter/blob/main/LICENSE
+ShortDescription: Standalone desktop app and CLI to convert proprietary Nesstar binary survey files to open formats (CSV, Parquet, Stata, Excel).
+Description: |
+  Nesstar Converter reads proprietary .Nesstar binary survey files directly (without requiring legacy Windows Nesstar Explorer)
+  and converts them into modern open formats including Apache Parquet, Stata (.dta), SPSS (.sav), CSV, and Excel.
+Tags:
+  - nesstar
+  - survey
+  - microdata
+  - statistics
+  - parquet
+  - ddi
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/abhinavjnu/nesstar-converter/releases/download/v1.0.7/NesstarConverter-Windows-x86_64-Rust.zip
+    InstallerSha256: 3c570bca578bfa7beea6a827df619b0222f6d2b304c55b6efc68ea74ee800042
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: NesstarConverter.exe
+        PortableCommandAlias: nesstar-gui
+ManifestType: singleton
+ManifestVersion: 1.6.0

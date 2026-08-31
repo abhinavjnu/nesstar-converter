@@ -28,6 +28,50 @@ pub fn parse_ddi(path: impl AsRef<Path>) -> Result<SurveyMetadata, NesstarError>
     })
 }
 
+/// Parse DDI XML from path, or if empty / missing, attempt auto-discovery
+/// next to the `.Nesstar` file.
+pub fn parse_ddi_auto(
+    ddi_path: impl AsRef<Path>,
+    source_path: impl AsRef<Path>,
+) -> Result<SurveyMetadata, NesstarError> {
+    let ddi = ddi_path.as_ref();
+    if ddi.exists() && ddi.is_file() {
+        return parse_ddi(ddi);
+    }
+    let src = source_path.as_ref();
+    if let Some(parent) = src.parent() {
+        let stem = src.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let candidate1 = parent.join(format!("{stem}.ddi.xml"));
+        if candidate1.exists() {
+            return parse_ddi(&candidate1);
+        }
+        let candidate2 = parent.join(format!("{stem}.xml"));
+        if candidate2.exists() {
+            return parse_ddi(&candidate2);
+        }
+        let candidate3 = parent.join("ddi.xml");
+        if candidate3.exists() {
+            return parse_ddi(&candidate3);
+        }
+        if let Ok(entries) = std::fs::read_dir(parent) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file()
+                    && p.extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| e.eq_ignore_ascii_case("xml"))
+                        .unwrap_or(false)
+                {
+                    if let Ok(meta) = parse_ddi(&p) {
+                        return Ok(meta);
+                    }
+                }
+            }
+        }
+    }
+    parse_ddi(ddi)
+}
+
 /// Parse DDI data from a reader. This is primarily useful for callers that
 /// already own the XML bytes and for focused parser tests.
 pub fn parse_ddi_reader<R: Read>(reader: R) -> Result<SurveyMetadata, NesstarError> {
