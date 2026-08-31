@@ -10,7 +10,11 @@ resolver = "2"
 version = "1.0.7"
 edition = "2024"
 license = "MIT"
-publish = false
+authors = ["Abhinav Kumar"]
+repository = "https://github.com/abhinavjnu/nesstar-converter"
+homepage = "https://github.com/abhinavjnu/nesstar-converter"
+documentation = "https://docs.rs/nesstar-core"
+readme = "README.md"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

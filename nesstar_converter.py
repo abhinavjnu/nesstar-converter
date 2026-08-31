@@ -30,6 +30,8 @@ Supported output formats:
 Requirements: pandas, pyarrow, numpy, tqdm, openpyxl (for Excel)
 """
 
+__version__ = "1.0.7"
+
 import argparse
 import json
 import math

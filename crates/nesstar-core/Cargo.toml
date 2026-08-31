@@ -3,7 +3,13 @@ name = "nesstar-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme = "../../README.md"
+description = "High-performance Rust parser and converter for proprietary Nesstar survey files"
+keywords = ["nesstar", "ddi", "survey", "parquet", "microdata"]
+categories = ["parser-implementations", "data-structures", "science"]
 
 [features]
 parquet = ["dep:arrow-array", "dep:arrow-schema", "dep:parquet"]
