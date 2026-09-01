@@ -89,7 +89,7 @@ impl Default for ConverterApp {
             input: String::new(),
             ddi: String::new(),
             output: String::new(),
-            format: OutputFormat::Csv,
+            format: OutputFormat::Parquet,
             worker: None,
             status: String::new(),
 

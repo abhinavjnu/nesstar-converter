@@ -1,6 +1,6 @@
 # Maintainer: Abhinav Kumar <abhinavjnu@github.com>
 pkgname=nesstar-converter-bin
-pkgver=1.0.7
+pkgver=1.0.8
 pkgrel=1
 pkgdesc="High-performance parser and converter for proprietary Nesstar survey files"
 arch=('x86_64')
