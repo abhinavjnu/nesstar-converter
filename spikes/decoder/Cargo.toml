@@ -1,9 +1,0 @@
-[package]
-name = "nesstar-decoder-spike"
-version = "0.1.0"
-edition = "2021"
-publish = false
-
-# Intentionally dependency-free: this is a feasibility experiment, not the
-# production crate. Production XML and memory-map dependencies need an ADR.
-

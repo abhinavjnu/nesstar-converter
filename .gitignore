@@ -20,6 +20,11 @@ target/
 # OS-specific files
 .DS_Store
 
+# Scratch notes and plans
+handoff.md
+PROJECT.md
+ORIGINAL_REQUEST.md
+
 # Google Antigravity/Agentic subagents logs and configs
 .agents/
 
