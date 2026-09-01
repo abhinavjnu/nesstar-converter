@@ -511,15 +511,20 @@ fn pick_block<'m>(
     metadata: &'m crate::model::SurveyMetadata,
     output_path: &Path,
 ) -> Result<&'m crate::model::BlockDefinition, PipelineError> {
+    let stem = output_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("");
+    let stem_clean = sanitize_name(stem);
+    let stem_upper = stem.to_ascii_uppercase();
+
     metadata
         .blocks
         .iter()
         .find(|b| {
-            let stem = output_path
-                .file_stem()
-                .and_then(|s| s.to_str())
-                .unwrap_or("");
-            sanitize_name(&b.name) == sanitize_name(stem)
+            sanitize_name(&b.name) == stem_clean
+                || sanitize_name(&b.file_id) == stem_clean
+                || stem_upper.contains(&b.file_id.to_ascii_uppercase())
         })
         .or_else(|| metadata.blocks.first())
         .ok_or_else(|| PipelineError::Failed("DDI has no blocks".into()))
