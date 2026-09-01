@@ -1916,7 +1916,6 @@ dependencies = [
  "eframe",
  "nesstar-core",
  "rfd",
- "webbrowser",
 ]
 
 [[package]]

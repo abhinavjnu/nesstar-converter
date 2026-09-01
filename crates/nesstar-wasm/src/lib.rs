@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use nesstar_core::{
     ddi::parse_ddi_reader,
-    decode::{DecodeError, decode_metadata_batches, decode_resource_batches},
+    decode::{DecodeError, RecordBatch, decode_metadata_batches, decode_resource_batches},
     formats::{dta::DtaOutput, fwf::FixedWidthOutput, parquet::ParquetOutput, spss::SpssOutput},
     layout::{metadata_scan::discover_metadata_layout, resource_index::discover_resource_layout},
     model::{BlockDefinition, CellValue, VariableDefinition},
@@ -82,69 +82,38 @@ pub fn preview_nesstar(
     let source = ReadOnlySource::from_bytes(nesstar_bytes.to_vec())
         .map_err(|e| JsValue::from_str(&format!("Binary Error: {e}")))?;
 
-    let headers: Vec<String>;
+    let is_resource = discover_resource_layout(source.bytes(), block);
+    let headers: Vec<String> = match &is_resource {
+        Ok(l) => l.columns.iter().map(|c| c.variable.name.clone()).collect(),
+        Err(_) => {
+            let l = discover_metadata_layout(source.bytes(), block)
+                .map_err(|e| JsValue::from_str(&format!("Layout Error: {e}")))?;
+            l.columns_in_ddi_order()
+                .into_iter()
+                .map(|c| c.variable.name.clone())
+                .collect()
+        }
+    };
+
     let mut rows: Vec<Vec<String>> = Vec::new();
     let max_rows = if limit == 0 { 50 } else { limit };
 
-    if let Ok(layout) = discover_resource_layout(source.bytes(), block) {
-        headers = layout
-            .columns
-            .iter()
-            .map(|c| c.variable.name.clone())
-            .collect();
-        let _ = decode_resource_batches(
-            &source,
-            &layout,
-            max_rows,
-            || true,
-            |batch| {
-                for row_idx in 0..batch.row_count.min(max_rows - rows.len()) {
-                    let mut row = Vec::with_capacity(batch.columns.len());
-                    for col in &batch.columns {
-                        match &col.values[row_idx] {
-                            CellValue::Missing => row.push(String::new()),
-                            CellValue::Text(s) => row.push(s.clone()),
-                        }
-                    }
-                    rows.push(row);
-                    if rows.len() >= max_rows {
-                        break;
-                    }
+    let _ = for_each_batch(&source, block, is_resource.is_ok(), max_rows, |batch| {
+        for row_idx in 0..batch.row_count.min(max_rows - rows.len()) {
+            let mut row = Vec::with_capacity(batch.columns.len());
+            for col in &batch.columns {
+                match &col.values[row_idx] {
+                    CellValue::Missing => row.push(String::new()),
+                    CellValue::Text(s) => row.push(s.clone()),
                 }
-                Ok(())
-            },
-        );
-    } else {
-        let layout = discover_metadata_layout(source.bytes(), block)
-            .map_err(|e| JsValue::from_str(&format!("Layout Error: {e}")))?;
-        headers = layout
-            .columns_in_ddi_order()
-            .into_iter()
-            .map(|c| c.variable.name.clone())
-            .collect();
-        let _ = decode_metadata_batches(
-            &source,
-            &layout,
-            max_rows,
-            || true,
-            |batch| {
-                for row_idx in 0..batch.row_count.min(max_rows - rows.len()) {
-                    let mut row = Vec::with_capacity(batch.columns.len());
-                    for col in &batch.columns {
-                        match &col.values[row_idx] {
-                            CellValue::Missing => row.push(String::new()),
-                            CellValue::Text(s) => row.push(s.clone()),
-                        }
-                    }
-                    rows.push(row);
-                    if rows.len() >= max_rows {
-                        break;
-                    }
-                }
-                Ok(())
-            },
-        );
-    }
+            }
+            rows.push(row);
+            if rows.len() >= max_rows {
+                break;
+            }
+        }
+        Ok(())
+    });
 
     let total_cols = headers.len();
     let preview = PreviewData {
@@ -216,6 +185,29 @@ pub fn convert_nesstar(
     Ok(array)
 }
 
+fn for_each_batch<F>(
+    source: &ReadOnlySource,
+    block: &BlockDefinition,
+    is_resource: bool,
+    batch_size: usize,
+    callback: F,
+) -> Result<(), JsValue>
+where
+    F: FnMut(RecordBatch) -> Result<(), DecodeError>,
+{
+    if is_resource {
+        let layout = discover_resource_layout(source.bytes(), block)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        decode_resource_batches(source, &layout, batch_size, || true, callback)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    } else {
+        let layout = discover_metadata_layout(source.bytes(), block)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        decode_metadata_batches(source, &layout, batch_size, || true, callback)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+}
+
 fn convert_to_format_bytes(
     source: &ReadOnlySource,
     block: &BlockDefinition,
@@ -226,108 +218,33 @@ fn convert_to_format_bytes(
 ) -> Result<Vec<u8>, JsValue> {
     match format {
         "parquet" => {
-            let buffer = Cursor::new(Vec::new());
-            let mut writer = ParquetOutput::from_writer(buffer, variables)
+            let mut writer = ParquetOutput::from_writer(Cursor::new(Vec::new()), variables)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| writer.write_batch(&batch).map_err(DecodeError::Writer),
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| writer.write_batch(&batch).map_err(DecodeError::Writer),
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-
+            for_each_batch(source, block, is_resource, 5_000, |b| {
+                writer.write_batch(&b).map_err(DecodeError::Writer)
+            })?;
             let cursor = writer.finish().map_err(|e| JsValue::from_str(&e))?;
             Ok(cursor.into_inner())
         }
         "dta" | "stata" => {
-            let cursor = Cursor::new(Vec::new());
-            let mut writer = DtaOutput::from_writer(cursor, headers, variables)
+            let mut writer = DtaOutput::from_writer(Cursor::new(Vec::new()), headers, variables)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        writer
-                            .write_batch(&batch, variables)
-                            .map_err(DecodeError::Writer)
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        writer
-                            .write_batch(&batch, variables)
-                            .map_err(DecodeError::Writer)
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-
+            for_each_batch(source, block, is_resource, 5_000, |b| {
+                writer
+                    .write_batch(&b, variables)
+                    .map_err(DecodeError::Writer)
+            })?;
             let cursor = writer
                 .finish(headers, variables)
                 .map_err(|e| JsValue::from_str(&e))?;
             Ok(cursor.into_inner())
         }
         "sav" | "spss" => {
-            let cursor = Cursor::new(Vec::new());
-            let mut writer = SpssOutput::from_writer(cursor, variables)
+            let mut writer = SpssOutput::from_writer(Cursor::new(Vec::new()), variables)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| writer.write_batch(&batch).map_err(DecodeError::Writer),
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| writer.write_batch(&batch).map_err(DecodeError::Writer),
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-
+            for_each_batch(source, block, is_resource, 5_000, |b| {
+                writer.write_batch(&b).map_err(DecodeError::Writer)
+            })?;
             let cursor = writer
                 .finish(variables)
                 .map_err(|e| JsValue::from_str(&e))?;
@@ -338,288 +255,115 @@ fn convert_to_format_bytes(
             let mut fwf_bytes = Vec::new();
             let mut writer = FixedWidthOutput::from_writer(&mut fwf_bytes, headers, &ddi_widths)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        writer
-                            .write_batch(&batch)
-                            .map_err(|e| DecodeError::Writer(e.to_string()))
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        writer
-                            .write_batch(&batch)
-                            .map_err(|e| DecodeError::Writer(e.to_string()))
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
+            for_each_batch(source, block, is_resource, 5_000, |b| {
+                writer
+                    .write_batch(&b)
+                    .map_err(|e| DecodeError::Writer(e.to_string()))
+            })?;
             writer
                 .finish()
                 .map_err(|e| JsValue::from_str(&e.to_string()))?;
             Ok(fwf_bytes)
         }
         "jsonl" => {
-            let mut output_bytes = Vec::new();
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            let mut obj = serde_json::Map::new();
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {
-                                        obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
-                                    }
-                                    CellValue::Text(s) => {
-                                        obj.insert(
-                                            headers[c_idx].clone(),
-                                            serde_json::Value::String(s.clone()),
-                                        );
-                                    }
-                                }
+            let mut out = Vec::new();
+            for_each_batch(source, block, is_resource, 5_000, |batch| {
+                for row_idx in 0..batch.row_count {
+                    let mut obj = serde_json::Map::new();
+                    for (c_idx, col) in batch.columns.iter().enumerate() {
+                        match &col.values[row_idx] {
+                            CellValue::Missing => {
+                                obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
                             }
-                            if let Ok(line) = serde_json::to_string(&obj) {
-                                output_bytes.extend_from_slice(line.as_bytes());
-                                output_bytes.push(b'\n');
+                            CellValue::Text(s) => {
+                                obj.insert(
+                                    headers[c_idx].clone(),
+                                    serde_json::Value::String(s.clone()),
+                                );
                             }
                         }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            let mut obj = serde_json::Map::new();
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {
-                                        obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
-                                    }
-                                    CellValue::Text(s) => {
-                                        obj.insert(
-                                            headers[c_idx].clone(),
-                                            serde_json::Value::String(s.clone()),
-                                        );
-                                    }
-                                }
-                            }
-                            if let Ok(line) = serde_json::to_string(&obj) {
-                                output_bytes.extend_from_slice(line.as_bytes());
-                                output_bytes.push(b'\n');
-                            }
-                        }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-            Ok(output_bytes)
+                    }
+                    if let Ok(line) = serde_json::to_string(&obj) {
+                        out.extend_from_slice(line.as_bytes());
+                        out.push(b'\n');
+                    }
+                }
+                Ok(())
+            })?;
+            Ok(out)
         }
         "json" => {
-            let mut output_bytes = Vec::new();
-            output_bytes.extend_from_slice(b"[\n");
-            let mut first_record = true;
-
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            if !first_record {
-                                output_bytes.extend_from_slice(b",\n");
+            let mut out = Vec::new();
+            out.extend_from_slice(b"[\n");
+            let mut first = true;
+            for_each_batch(source, block, is_resource, 5_000, |batch| {
+                for row_idx in 0..batch.row_count {
+                    if !first {
+                        out.extend_from_slice(b",\n");
+                    }
+                    first = false;
+                    let mut obj = serde_json::Map::new();
+                    for (c_idx, col) in batch.columns.iter().enumerate() {
+                        match &col.values[row_idx] {
+                            CellValue::Missing => {
+                                obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
                             }
-                            first_record = false;
-                            let mut obj = serde_json::Map::new();
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {
-                                        obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
-                                    }
-                                    CellValue::Text(s) => {
-                                        obj.insert(
-                                            headers[c_idx].clone(),
-                                            serde_json::Value::String(s.clone()),
-                                        );
-                                    }
-                                }
-                            }
-                            if let Ok(line) = serde_json::to_string(&obj) {
-                                output_bytes.extend_from_slice(line.as_bytes());
+                            CellValue::Text(s) => {
+                                obj.insert(
+                                    headers[c_idx].clone(),
+                                    serde_json::Value::String(s.clone()),
+                                );
                             }
                         }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            if !first_record {
-                                output_bytes.extend_from_slice(b",\n");
-                            }
-                            first_record = false;
-                            let mut obj = serde_json::Map::new();
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {
-                                        obj.insert(headers[c_idx].clone(), serde_json::Value::Null);
-                                    }
-                                    CellValue::Text(s) => {
-                                        obj.insert(
-                                            headers[c_idx].clone(),
-                                            serde_json::Value::String(s.clone()),
-                                        );
-                                    }
-                                }
-                            }
-                            if let Ok(line) = serde_json::to_string(&obj) {
-                                output_bytes.extend_from_slice(line.as_bytes());
-                            }
-                        }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-            output_bytes.extend_from_slice(b"\n]\n");
-            Ok(output_bytes)
+                    }
+                    if let Ok(line) = serde_json::to_string(&obj) {
+                        out.extend_from_slice(line.as_bytes());
+                    }
+                }
+                Ok(())
+            })?;
+            out.extend_from_slice(b"\n]\n");
+            Ok(out)
         }
         _ => {
             let is_tsv = format.eq_ignore_ascii_case("tsv") || format.eq_ignore_ascii_case("txt");
             let sep = if is_tsv { b'\t' } else { b',' };
-            let mut output_bytes = Vec::new();
+            let mut out = Vec::new();
 
             for (idx, h) in headers.iter().enumerate() {
                 if idx > 0 {
-                    output_bytes.push(sep);
+                    out.push(sep);
                 }
-                output_bytes.extend_from_slice(h.as_bytes());
+                out.extend_from_slice(h.as_bytes());
             }
-            output_bytes.push(b'\n');
+            out.push(b'\n');
 
-            if is_resource {
-                let layout = discover_resource_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_resource_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                if c_idx > 0 {
-                                    output_bytes.push(sep);
-                                }
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {}
-                                    CellValue::Text(s) => {
-                                        if !is_tsv
-                                            && (s.contains(',')
-                                                || s.contains('"')
-                                                || s.contains('\n'))
-                                        {
-                                            output_bytes.push(b'"');
-                                            output_bytes.extend_from_slice(
-                                                s.replace('"', "\"\"").as_bytes(),
-                                            );
-                                            output_bytes.push(b'"');
-                                        } else {
-                                            output_bytes.extend_from_slice(s.as_bytes());
-                                        }
-                                    }
+            for_each_batch(source, block, is_resource, 5_000, |batch| {
+                for row_idx in 0..batch.row_count {
+                    for (c_idx, col) in batch.columns.iter().enumerate() {
+                        if c_idx > 0 {
+                            out.push(sep);
+                        }
+                        match &col.values[row_idx] {
+                            CellValue::Missing => {}
+                            CellValue::Text(s) => {
+                                if !is_tsv
+                                    && (s.contains(',') || s.contains('"') || s.contains('\n'))
+                                {
+                                    out.push(b'"');
+                                    out.extend_from_slice(s.replace('"', "\"\"").as_bytes());
+                                    out.push(b'"');
+                                } else {
+                                    out.extend_from_slice(s.as_bytes());
                                 }
                             }
-                            output_bytes.push(b'\n');
                         }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            } else {
-                let layout = discover_metadata_layout(source.bytes(), block)
-                    .map_err(|e| JsValue::from_str(&e.to_string()))?;
-                decode_metadata_batches(
-                    source,
-                    &layout,
-                    5_000,
-                    || true,
-                    |batch| {
-                        for row_idx in 0..batch.row_count {
-                            for (c_idx, col) in batch.columns.iter().enumerate() {
-                                if c_idx > 0 {
-                                    output_bytes.push(sep);
-                                }
-                                match &col.values[row_idx] {
-                                    CellValue::Missing => {}
-                                    CellValue::Text(s) => {
-                                        if !is_tsv
-                                            && (s.contains(',')
-                                                || s.contains('"')
-                                                || s.contains('\n'))
-                                        {
-                                            output_bytes.push(b'"');
-                                            output_bytes.extend_from_slice(
-                                                s.replace('"', "\"\"").as_bytes(),
-                                            );
-                                            output_bytes.push(b'"');
-                                        } else {
-                                            output_bytes.extend_from_slice(s.as_bytes());
-                                        }
-                                    }
-                                }
-                            }
-                            output_bytes.push(b'\n');
-                        }
-                        Ok(())
-                    },
-                )
-                .map_err(|e| JsValue::from_str(&e.to_string()))?;
-            }
-            Ok(output_bytes)
+                    }
+                    out.push(b'\n');
+                }
+                Ok(())
+            })?;
+            Ok(out)
         }
     }
 }

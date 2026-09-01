@@ -353,14 +353,18 @@ impl eframe::App for ConverterApp {
                         .add_sized([150.0, 28.0], egui::Button::new("Sponsor on GitHub"))
                         .clicked()
                     {
-                        let _ = webbrowser::open("https://github.com/sponsors/abhinavjnu");
+                        ui.ctx().open_url(egui::OpenUrl::new_tab(
+                            "https://github.com/sponsors/abhinavjnu",
+                        ));
                     }
                     ui.add_space(6.0);
                     if ui
                         .add_sized([150.0, 28.0], egui::Button::new("Buy Me a Coffee"))
                         .clicked()
                     {
-                        let _ = webbrowser::open("https://buymeacoffee.com/abhinavjnu");
+                        ui.ctx().open_url(egui::OpenUrl::new_tab(
+                            "https://buymeacoffee.com/abhinavjnu",
+                        ));
                     }
                 });
             });

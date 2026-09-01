@@ -9,7 +9,6 @@ publish = false
 eframe = { version = "=0.33.0", default-features = false, features = ["accesskit", "default_fonts", "glow"] }
 nesstar-core = { path = "../nesstar-core", features = ["parquet"] }
 rfd = { version = "=0.15.4" }
-webbrowser = "1.0.0"
 
 [lints]
 workspace = true
