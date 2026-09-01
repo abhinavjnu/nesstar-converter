@@ -29,7 +29,10 @@ const SPSS_NAME_LEN: usize = 8;
 enum SpssType {
     Numeric,
     /// Number of bytes (padded to multiple of 8).
-    Str { width: usize, n_segments: usize },
+    Str {
+        width: usize,
+        n_segments: usize,
+    },
 }
 
 impl SpssType {
@@ -131,10 +134,7 @@ impl<W: Write> SpssOutput<W> {
         Ok(())
     }
 
-    pub fn finish(
-        mut self,
-        variables: &[VariableDefinition],
-    ) -> Result<W, String> {
+    pub fn finish(mut self, variables: &[VariableDefinition]) -> Result<W, String> {
         let w = &mut self.writer;
 
         macro_rules! i32le {
@@ -162,7 +162,8 @@ impl<W: Write> SpssOutput<W> {
         // Record 1: General Header (176 bytes)
         // ----------------------------------------------------------------
         w_all!(b"$FL2"); // magic: 4 bytes
-        let prod = format!("@(#) SPSS DATA FILE NesstarConverter");
+        // Product name: 60 bytes ASCII, padded with spaces
+        let prod = "@(#) SPSS DATA FILE NesstarConverter";
         let mut prod_buf = [b' '; 60];
         let p_bytes = prod.as_bytes();
         prod_buf[..p_bytes.len().min(60)].copy_from_slice(&p_bytes[..p_bytes.len().min(60)]);

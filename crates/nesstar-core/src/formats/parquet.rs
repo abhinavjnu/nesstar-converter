@@ -41,7 +41,10 @@ mod inner {
     }
 
     impl<W: Write + Send + 'static> ParquetOutput<W> {
-        pub fn from_writer(writer: W, variables: &[VariableDefinition]) -> Result<Self, NesstarError> {
+        pub fn from_writer(
+            writer: W,
+            variables: &[VariableDefinition],
+        ) -> Result<Self, NesstarError> {
             let fields: Vec<Field> = variables.iter().map(field_for).collect();
             let schema = Arc::new(Schema::new(fields));
             let props = WriterProperties::builder().build();

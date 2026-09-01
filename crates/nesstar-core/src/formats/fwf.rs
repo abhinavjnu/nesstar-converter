@@ -45,17 +45,14 @@ impl<W: Write> FixedWidthOutput<W> {
                     + 1
             })
             .collect();
-        
+
         let mut line = String::new();
         for (value, width) in headers.iter().zip(&widths) {
             line.push_str(&format!("{value:<width$}", width = *width));
         }
         writeln!(writer, "{}", line.trim_end()).map_err(io_error)?;
 
-        Ok(Self {
-            writer,
-            widths,
-        })
+        Ok(Self { writer, widths })
     }
 
     pub fn write_batch(&mut self, batch: &RecordBatch) -> Result<(), NesstarError> {

@@ -302,7 +302,11 @@ fn convert_with_dta(
         decode_resource_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b, &vars).map_err(DecodeError::Writer)
         })
-        .and_then(|_| out.finish(&headers, &vars).map(|_| ()).map_err(DecodeError::Writer))
+        .and_then(|_| {
+            out.finish(&headers, &vars)
+                .map(|_| ())
+                .map_err(DecodeError::Writer)
+        })
     } else {
         let layout = discover_metadata_layout(source.bytes(), block)
             .map_err(|e| PipelineError::Failed(e.to_string()))?;
@@ -314,7 +318,11 @@ fn convert_with_dta(
         decode_metadata_batches(&source, &layout, batch_size, &mut keep_going, |b| {
             out.write_batch(&b, &vars).map_err(DecodeError::Writer)
         })
-        .and_then(|_| out.finish(&headers, &vars).map(|_| ()).map_err(DecodeError::Writer))
+        .and_then(|_| {
+            out.finish(&headers, &vars)
+                .map(|_| ())
+                .map_err(DecodeError::Writer)
+        })
     };
     finalize(result, &partial, output_path)
 }
