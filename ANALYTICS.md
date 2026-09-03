@@ -1,14 +1,14 @@
 # Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-09-02 02:07:42 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-09-03 02:13:30 UTC` *(Automatically updated daily via GitHub Actions)*
 
 ## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **913** | Direct package installations (excluding mirror indexing bots) |
-| **PyPI Total Downloads (Gross)** | **2,874** | Total recorded package downloads |
-| **PyPI Monthly Installs** | **136** | Installations within the last 30 days |
+| **PyPI Total Downloads (Clean)** | **918** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **2,903** | Total recorded package downloads |
+| **PyPI Monthly Installs** | **153** | Installations within the last 30 days |
 | **GitHub Release Binaries** | **7** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
 | **Tracked Page Views** | **1** | Total recorded repository page visits |
@@ -19,16 +19,16 @@
 | Operating System | Direct Downloads |
 |---|---|
 | Linux | 114 |
-| Darwin | 61 |
+| Darwin | 63 |
 | Windows | 32 |
 
 ### By Python Version
 | Python Version | Direct Downloads |
 |---|---|
-| Python 3.12 | 73 |
+| Python 3.12 | 74 |
 | Python 3.11 | 63 |
 | Python 3.10 | 34 |
-| Python 3.14 | 22 |
+| Python 3.14 | 23 |
 | Python 3.13 | 15 |
 
 ---
