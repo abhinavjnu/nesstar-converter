@@ -1,15 +1,15 @@
 # Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-09-11 02:12:08 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-09-12 02:18:35 UTC` *(Automatically updated daily via GitHub Actions)*
 
 ## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
 | **PyPI Total Downloads (Clean)** | **947** | Direct package installations (excluding mirror indexing bots) |
-| **PyPI Total Downloads (Gross)** | **3,034** | Total recorded package downloads |
-| **PyPI Monthly Installs** | **162** | Installations within the last 30 days |
-| **GitHub Release Binaries** | **11** | Standalone GUI and CLI binary distributions |
+| **PyPI Total Downloads (Gross)** | **3,044** | Total recorded package downloads |
+| **PyPI Monthly Installs** | **160** | Installations within the last 30 days |
+| **GitHub Release Binaries** | **13** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
 | **Tracked Page Views** | **1** | Total recorded repository page visits |
 
@@ -37,8 +37,8 @@
 
 | Release | Binary Asset | Size | Downloads |
 |---|---|---|---|
+| `v1.0.8` | **NesstarConverter-macOS-Rust.zip** | 3.72 MB | **3** |
 | `v1.0.8` | **NesstarConverter-Windows-x86_64-Rust.zip** | 4.21 MB | **3** |
-| `v1.0.8` | **NesstarConverter-macOS-Rust.zip** | 3.72 MB | **1** |
 | `v1.0.8` | **nesstar-converter_1.0.8_amd64.deb** | 4.74 MB | **0** |
 | `v1.0.8` | **NesstarConverter-Linux-x86_64-Rust.tar.gz** | 6.17 MB | **0** |
 | `v1.0.8` | **NesstarConverter-x86_64.AppImage** | 6.47 MB | **0** |
