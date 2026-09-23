@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.7] - 2026-07-15
+## [1.0.9] - 2026-09-23
+
+### Fixed
+- macOS desktop app bundle: build true Universal binary (`x86_64` + `arm64`) using `lipo`
+- macOS desktop app bundle: add ad-hoc code signature (`codesign`) to prevent "is damaged" Gatekeeper errors
+- macOS desktop app packaging: preserve symlinks in zip archive (`zip -y`)
+- Document Gatekeeper quarantine bypass (`xattr -cr`) in README for unnotarized macOS installations
+
+## [1.0.8] - 2026-08-31
+
+### Added
+- WebAssembly (Wasm) client-side in-browser conversion engine
+- Linux standalone AppImage release packaging
 
 ### Added
 - Windows build support — CI now compiles and releases `NesstarConverter.exe` for Windows
