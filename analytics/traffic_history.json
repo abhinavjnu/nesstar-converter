@@ -57,7 +57,7 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-09-22 02:33:31 UTC",
+  "last_updated": "2026-09-23 02:33:53 UTC",
   "pypi": {
     "os_breakdown": {
       "Darwin": 66,
@@ -76,8 +76,8 @@
       "last_month": 164,
       "last_week": 9
     },
-    "total_with_mirrors": 3131,
-    "total_without_mirrors": 963
+    "total_with_mirrors": 3136,
+    "total_without_mirrors": 966
   },
   "releases": [
     {
@@ -94,7 +94,7 @@
     },
     {
       "asset": "NesstarConverter-macOS-Rust.zip",
-      "downloads": 4,
+      "downloads": 5,
       "release": "v1.0.8",
       "size_mb": 3.72
     },
@@ -147,7 +147,7 @@
       "size_mb": 3.67
     }
   ],
-  "total_release_downloads": 19,
+  "total_release_downloads": 20,
   "views": {
     "2026-08-17": {
       "count": 0,
