@@ -17,6 +17,8 @@ jobs:
 
       - name: Set up Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          targets: x86_64-apple-darwin,aarch64-apple-darwin
 
       - name: Build macOS App Bundle
         run: |
@@ -26,7 +28,7 @@ jobs:
       - name: Create Zip
         run: |
           cd dist
-          zip -9 -r "../NesstarConverter-macOS-Rust.zip" "Nesstar Converter.app"
+          zip -9 -y -r "../NesstarConverter-macOS-Rust.zip" "Nesstar Converter.app"
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4

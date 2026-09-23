@@ -1,35 +1,35 @@
 #!/bin/bash
 set -e
 
-echo "=== Building Release Binary ==="
-cargo build --release --bin nesstar-gui
-
-echo "=== Creating macOS App Bundle ==="
 APP_DIR="dist/Nesstar Converter.app"
 
-# Remove existing bundle to start fresh
+echo "=== Creating macOS App Bundle ==="
 rm -rf "$APP_DIR"
-
-# Create directories
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
-# Copy executable
-cp target/release/nesstar-gui "$APP_DIR/Contents/MacOS/Nesstar Converter"
+echo "=== Building Release Binary ==="
+rustup target add x86_64-apple-darwin aarch64-apple-darwin 2>/dev/null || true
+
+if cargo build --release --target x86_64-apple-darwin --bin nesstar-gui && \
+   cargo build --release --target aarch64-apple-darwin --bin nesstar-gui; then
+    echo "=== Creating Universal Binary (x86_64 + arm64) ==="
+    lipo -create -output "$APP_DIR/Contents/MacOS/Nesstar Converter" \
+        target/x86_64-apple-darwin/release/nesstar-gui \
+        target/aarch64-apple-darwin/release/nesstar-gui
+else
+    echo "=== Falling back to host architecture build ==="
+    cargo build --release --bin nesstar-gui
+    cp target/release/nesstar-gui "$APP_DIR/Contents/MacOS/Nesstar Converter"
+fi
+
+chmod +x "$APP_DIR/Contents/MacOS/Nesstar Converter"
 
 # Copy icon
 if [ -f "dist/icon-windowed.icns" ]; then
     cp dist/icon-windowed.icns "$APP_DIR/Contents/Resources/icon-windowed.icns"
 elif [ -f "gui/icon-windowed.icns" ]; then
     cp gui/icon-windowed.icns "$APP_DIR/Contents/Resources/icon-windowed.icns"
-else
-    # Fallback to copy from the build_mac source if it exists
-    find dist -name "*.icns" -exec cp {} "$APP_DIR/Contents/Resources/icon-windowed.icns" \; || true
-fi
-
-# If we still don't have it, try copy from the Pyside package
-if [ ! -f "$APP_DIR/Contents/Resources/icon-windowed.icns" ]; then
-    cp .verify_env/lib/python3.14/site-packages/PySide6/scripts/deploy_lib/pyside_icon.icns "$APP_DIR/Contents/Resources/icon-windowed.icns" || true
 fi
 
 # Create Info.plist
@@ -53,7 +53,7 @@ cat <<EOF > "$APP_DIR/Contents/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.0.8</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>LSMinimumSystemVersion</key>
@@ -63,6 +63,11 @@ cat <<EOF > "$APP_DIR/Contents/Info.plist"
 </dict>
 </plist>
 EOF
+
+if command -v codesign >/dev/null 2>&1; then
+    echo "=== Ad-hoc Signing App Bundle ==="
+    codesign --force --deep --sign - "$APP_DIR"
+fi
 
 echo "=== macOS App Bundle Created Successfully at $APP_DIR ==="
 du -sh "$APP_DIR"
