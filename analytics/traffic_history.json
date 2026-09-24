@@ -57,7 +57,7 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-09-23 02:33:53 UTC",
+  "last_updated": "2026-09-24 02:23:05 UTC",
   "pypi": {
     "os_breakdown": {
       "Darwin": 66,
@@ -73,13 +73,43 @@
     },
     "recent": {
       "last_day": 0,
-      "last_month": 164,
-      "last_week": 9
+      "last_month": 163,
+      "last_week": 7
     },
-    "total_with_mirrors": 3136,
+    "total_with_mirrors": 3140,
     "total_without_mirrors": 966
   },
   "releases": [
+    {
+      "asset": "nesstar-converter_1.0.9_amd64.deb",
+      "downloads": 0,
+      "release": "v1.0.9",
+      "size_mb": 4.74
+    },
+    {
+      "asset": "NesstarConverter-Linux-x86_64-Rust.tar.gz",
+      "downloads": 0,
+      "release": "v1.0.9",
+      "size_mb": 6.17
+    },
+    {
+      "asset": "NesstarConverter-macOS-Rust.zip",
+      "downloads": 1,
+      "release": "v1.0.9",
+      "size_mb": 7.76
+    },
+    {
+      "asset": "NesstarConverter-Windows-x86_64-Rust.zip",
+      "downloads": 0,
+      "release": "v1.0.9",
+      "size_mb": 4.21
+    },
+    {
+      "asset": "NesstarConverter-x86_64.AppImage",
+      "downloads": 0,
+      "release": "v1.0.9",
+      "size_mb": 6.47
+    },
     {
       "asset": "nesstar-converter_1.0.8_amd64.deb",
       "downloads": 1,
@@ -94,7 +124,7 @@
     },
     {
       "asset": "NesstarConverter-macOS-Rust.zip",
-      "downloads": 5,
+      "downloads": 8,
       "release": "v1.0.8",
       "size_mb": 3.72
     },
@@ -147,7 +177,7 @@
       "size_mb": 3.67
     }
   ],
-  "total_release_downloads": 20,
+  "total_release_downloads": 24,
   "views": {
     "2026-08-17": {
       "count": 0,
