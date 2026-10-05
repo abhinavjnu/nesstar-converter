@@ -57,17 +57,17 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-10-04 03:31:43 UTC",
+  "last_updated": "2026-10-05 03:12:10 UTC",
   "pypi": {
     "os_breakdown": {
       "Darwin": 67,
-      "Linux": 123,
+      "Linux": 124,
       "Windows": 41
     },
     "python_breakdown": {
       "3.10": 35,
       "3.11": 66,
-      "3.12": 86,
+      "3.12": 87,
       "3.13": 19,
       "3.14": 25
     },
@@ -76,13 +76,13 @@
       "last_month": 57,
       "last_week": 13
     },
-    "total_with_mirrors": 3207,
-    "total_without_mirrors": 983
+    "total_with_mirrors": 3211,
+    "total_without_mirrors": 985
   },
   "releases": [
     {
       "asset": "nesstar-converter_1.0.9_amd64.deb",
-      "downloads": 0,
+      "downloads": 1,
       "release": "v1.0.9",
       "size_mb": 4.74
     },
@@ -177,7 +177,7 @@
       "size_mb": 3.67
     }
   ],
-  "total_release_downloads": 24,
+  "total_release_downloads": 25,
   "views": {
     "2026-08-17": {
       "count": 0,

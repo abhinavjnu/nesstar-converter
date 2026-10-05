@@ -1,15 +1,15 @@
 # Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-10-04 03:31:43 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-10-05 03:12:10 UTC` *(Automatically updated daily via GitHub Actions)*
 
 ## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **983** | Direct package installations (excluding mirror indexing bots) |
-| **PyPI Total Downloads (Gross)** | **3,207** | Total recorded package downloads |
+| **PyPI Total Downloads (Clean)** | **985** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **3,211** | Total recorded package downloads |
 | **PyPI Monthly Installs** | **57** | Installations within the last 30 days |
-| **GitHub Release Binaries** | **24** | Standalone GUI and CLI binary distributions |
+| **GitHub Release Binaries** | **25** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
 | **Tracked Page Views** | **1** | Total recorded repository page visits |
 
@@ -18,14 +18,14 @@
 ### By Operating System
 | Operating System | Direct Downloads |
 |---|---|
-| Linux | 123 |
+| Linux | 124 |
 | Darwin | 67 |
 | Windows | 41 |
 
 ### By Python Version
 | Python Version | Direct Downloads |
 |---|---|
-| Python 3.12 | 86 |
+| Python 3.12 | 87 |
 | Python 3.11 | 66 |
 | Python 3.10 | 35 |
 | Python 3.14 | 25 |
@@ -37,8 +37,8 @@
 
 | Release | Binary Asset | Size | Downloads |
 |---|---|---|---|
+| `v1.0.9` | **nesstar-converter_1.0.9_amd64.deb** | 4.74 MB | **1** |
 | `v1.0.9` | **NesstarConverter-macOS-Rust.zip** | 7.76 MB | **1** |
-| `v1.0.9` | **nesstar-converter_1.0.9_amd64.deb** | 4.74 MB | **0** |
 | `v1.0.9` | **NesstarConverter-Linux-x86_64-Rust.tar.gz** | 6.17 MB | **0** |
 | `v1.0.9` | **NesstarConverter-Windows-x86_64-Rust.zip** | 4.21 MB | **0** |
 | `v1.0.9` | **NesstarConverter-x86_64.AppImage** | 6.47 MB | **0** |
