@@ -57,7 +57,7 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-10-07 03:28:03 UTC",
+  "last_updated": "2026-10-08 03:42:58 UTC",
   "pypi": {
     "os_breakdown": {
       "Darwin": 67,
@@ -76,7 +76,7 @@
       "last_month": 54,
       "last_week": 14
     },
-    "total_with_mirrors": 3231,
+    "total_with_mirrors": 3239,
     "total_without_mirrors": 992
   },
   "releases": [
