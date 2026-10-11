@@ -1,13 +1,13 @@
 # Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-10-10 03:31:29 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-10-11 03:04:06 UTC` *(Automatically updated daily via GitHub Actions)*
 
 ## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
 | **PyPI Total Downloads (Clean)** | **1,000** | Direct package installations (excluding mirror indexing bots) |
-| **PyPI Total Downloads (Gross)** | **3,254** | Total recorded package downloads |
+| **PyPI Total Downloads (Gross)** | **3,258** | Total recorded package downloads |
 | **PyPI Monthly Installs** | **54** | Installations within the last 30 days |
 | **GitHub Release Binaries** | **25** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
