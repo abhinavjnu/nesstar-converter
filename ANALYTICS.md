@@ -1,15 +1,15 @@
 # Nesstar Converter — Analytics & Usage Report
 
-> **Last Updated:** `2026-11-09 03:48:08 UTC` *(Automatically updated daily via GitHub Actions)*
+> **Last Updated:** `2026-11-10 05:22:33 UTC` *(Automatically updated daily via GitHub Actions)*
 
 ## Overview Summary
 
 | Metric | Count | Description |
 |---|---|---|
-| **PyPI Total Downloads (Clean)** | **1,270** | Direct package installations (excluding mirror indexing bots) |
-| **PyPI Total Downloads (Gross)** | **3,700** | Total recorded package downloads |
+| **PyPI Total Downloads (Clean)** | **1,281** | Direct package installations (excluding mirror indexing bots) |
+| **PyPI Total Downloads (Gross)** | **3,715** | Total recorded package downloads |
 | **PyPI Monthly Installs** | **54** | Installations within the last 30 days |
-| **GitHub Release Binaries** | **25** | Standalone GUI and CLI binary distributions |
+| **GitHub Release Binaries** | **26** | Standalone GUI and CLI binary distributions |
 | **Tracked Git Clones** | **7** | Total recorded git clone operations |
 | **Tracked Page Views** | **1** | Total recorded repository page visits |
 
@@ -18,19 +18,19 @@
 ### By Operating System
 | Operating System | Direct Downloads |
 |---|---|
-| Windows | 211 |
-| Linux | 194 |
-| Darwin | 71 |
+| Windows | 212 |
+| Linux | 199 |
+| Darwin | 73 |
 
 ### By Python Version
 | Python Version | Direct Downloads |
 |---|---|
-| Python 3.12 | 228 |
-| Python 3.13 | 114 |
-| Python 3.11 | 67 |
+| Python 3.12 | 230 |
+| Python 3.13 | 116 |
+| Python 3.11 | 69 |
 | Python 3.10 | 36 |
-| Python 3.14 | 30 |
-| Python 3.15 | 1 |
+| Python 3.14 | 31 |
+| Python 3.15 | 2 |
 
 ---
 
@@ -39,8 +39,8 @@
 | Release | Binary Asset | Size | Downloads |
 |---|---|---|---|
 | `v1.0.9` | **nesstar-converter_1.0.9_amd64.deb** | 4.74 MB | **1** |
+| `v1.0.9` | **NesstarConverter-Linux-x86_64-Rust.tar.gz** | 6.17 MB | **1** |
 | `v1.0.9` | **NesstarConverter-macOS-Rust.zip** | 7.76 MB | **1** |
-| `v1.0.9` | **NesstarConverter-Linux-x86_64-Rust.tar.gz** | 6.17 MB | **0** |
 | `v1.0.9` | **NesstarConverter-Windows-x86_64-Rust.zip** | 4.21 MB | **0** |
 | `v1.0.9` | **NesstarConverter-x86_64.AppImage** | 6.47 MB | **0** |
 | `v1.0.8` | **NesstarConverter-macOS-Rust.zip** | 3.72 MB | **8** |
