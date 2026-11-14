@@ -57,28 +57,28 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-11-13 04:16:13 UTC",
+  "last_updated": "2026-11-14 04:12:34 UTC",
   "pypi": {
     "os_breakdown": {
-      "Darwin": 64,
-      "Linux": 161,
-      "Windows": 210
+      "Darwin": 59,
+      "Linux": 163,
+      "Windows": 211
     },
     "python_breakdown": {
       "3.10": 17,
-      "3.11": 52,
-      "3.12": 215,
-      "3.13": 118,
-      "3.14": 31,
+      "3.11": 46,
+      "3.12": 216,
+      "3.13": 120,
+      "3.14": 32,
       "3.15": 2
     },
     "recent": {
-      "last_day": 15,
-      "last_month": 238,
-      "last_week": 42
+      "last_day": 4,
+      "last_month": 239,
+      "last_week": 45
     },
-    "total_with_mirrors": 2635,
-    "total_without_mirrors": 920
+    "total_with_mirrors": 2642,
+    "total_without_mirrors": 915
   },
   "releases": [
     {
@@ -101,7 +101,7 @@
     },
     {
       "asset": "NesstarConverter-Windows-x86_64-Rust.zip",
-      "downloads": 0,
+      "downloads": 1,
       "release": "v1.0.9",
       "size_mb": 4.21
     },
@@ -178,7 +178,7 @@
       "size_mb": 3.67
     }
   ],
-  "total_release_downloads": 26,
+  "total_release_downloads": 27,
   "views": {
     "2026-08-17": {
       "count": 0,
