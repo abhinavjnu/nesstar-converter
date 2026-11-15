@@ -57,28 +57,28 @@
       "uniques": 1
     }
   },
-  "last_updated": "2026-11-14 04:12:34 UTC",
+  "last_updated": "2026-11-15 03:58:02 UTC",
   "pypi": {
     "os_breakdown": {
       "Darwin": 59,
-      "Linux": 163,
-      "Windows": 211
+      "Linux": 165,
+      "Windows": 212
     },
     "python_breakdown": {
-      "3.10": 17,
+      "3.10": 18,
       "3.11": 46,
-      "3.12": 216,
-      "3.13": 120,
+      "3.12": 217,
+      "3.13": 121,
       "3.14": 32,
       "3.15": 2
     },
     "recent": {
       "last_day": 4,
-      "last_month": 239,
-      "last_week": 45
+      "last_month": 188,
+      "last_week": 49
     },
     "total_with_mirrors": 2642,
-    "total_without_mirrors": 915
+    "total_without_mirrors": 916
   },
   "releases": [
     {
